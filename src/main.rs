@@ -33,7 +33,7 @@ fn main() {
     println!("has def {}", host.has_def(id));
 
     host.for_each_child_def(id, |id, def| {
-//        println!("id {}, def {:?}", id, def);
-    });
+        println!("id {}, def {:?}", id, def);
+    }).unwrap();
     
 }

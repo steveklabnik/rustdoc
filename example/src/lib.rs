@@ -11,3 +11,12 @@ impl ExampleStruct{
         println!("Hello world");
     }
 }
+
+pub fn sample_function(x: i32) -> ExampleStruct {
+    let _ = x;
+    ExampleStruct
+}
+
+pub mod example_module {
+    pub struct AnotherStruct;
+}
