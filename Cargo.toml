@@ -1,0 +1,7 @@
+[package]
+name = "rustdoc"
+version = "0.1.0"
+authors = ["steveklabnik <steve@steveklabnik.com>"]
+
+[dependencies.rls-analysis]
+git = "https://github.com/nrc/rls-analysis/"
