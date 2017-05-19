@@ -27,7 +27,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "rls-analysis"
 version = "0.2.1"
-source = "git+https://github.com/nrc/rls-analysis/#2c1452cdb7470b8e4f11ef167dbae5ab65d02f74"
+source = "git+https://github.com/nrc/rls-analysis/#762db388901795d815fcc5a54b7470e2298a04c8"
 dependencies = [
  "derive-new 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
