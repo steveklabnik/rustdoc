@@ -1,5 +1,8 @@
 extern crate clap;
 extern crate rls_analysis as analysis;
+
+use analysis::raw::DefKind;
+
 use clap::{App, Arg, SubCommand};
 
 use std::io;
@@ -73,16 +76,31 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
         .find(|&&(_, ref name)| name == "example")
         .unwrap();
 
-    println!("root elements of this crate:");
+    println!("elements of this crate:");
 
-    config
+    let defs = config
         .host
-        .for_each_child_def(
-            id, |_, def| {
-                println!("{}", def.name);
-            }
-        )
+        .for_each_child_def(id, |_, def| def.clone())
         .unwrap();
+    
+    let kinds = vec![
+        DefKind::Mod,
+        DefKind::Static,
+        DefKind::Const,
+        DefKind::Enum,
+        DefKind::Struct,
+        DefKind::Union,
+        DefKind::Trait,
+        DefKind::Function,
+        DefKind::Macro,
+    ];
+
+    for kind in kinds {
+        println!("{:?}s:", kind);
+        for def in defs.iter().filter(|def| def.kind == kind) {
+            println!("{}", def.name);
+        }
+    }
 
     Ok(())
 }
