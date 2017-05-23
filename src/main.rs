@@ -1,11 +1,15 @@
 extern crate clap;
 extern crate rls_analysis as analysis;
-use clap::{App, SubCommand};
+use clap::{App, Arg, SubCommand};
 
-use std::env;
 use std::io;
 use std::io::prelude::*;
+use std::path::PathBuf;
 use std::process::{self, Command, Stdio};
+
+struct Config {
+    manifest_path: PathBuf,
+}
 
 fn main() {
     let version = env!("CARGO_PKG_VERSION");
@@ -14,12 +18,33 @@ fn main() {
         .version(version)
         .author("Steve Klabnik <steve@steveklabnik.com>")
         .about("Generate web-based documentation from your Rust code.")
-        .subcommand(SubCommand::with_name("build").about("generates documentation"))
+        .subcommand(
+            SubCommand::with_name("build")
+                .about("generates documentation")
+                .arg(
+                    Arg::with_name("manifest-path")
+                        .long("manifest-path")
+                        // remove the unwrap below if this default_value goes away
+                        .default_value(".")
+                        .help("The path to the Cargo manifest of the project you are documenting.")
+                )
+        )
         .get_matches();
 
+    // first unwrap is okay because we take a default value
+    let manifest_path = PathBuf::from(
+        matches
+            .subcommand_matches("build")
+            .unwrap()
+            .value_of("manifest-path")
+            .unwrap()
+    );
+
+    let config = Config { manifest_path };
+
     let result = match matches.subcommand_name() {
-        Some("build") => build(),
-        None => build(),
+        Some("build") => build(&config),
+        None => build(&config),
         _ => unreachable!(),
     };
 
@@ -30,8 +55,8 @@ fn main() {
     }
 }
 
-fn build() -> Result<(), Box<std::error::Error>> {
-    let host = generate_analysis()?;
+fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
+    let host = generate_analysis(config)?;
 
     let roots = host.def_roots().unwrap();
 
@@ -52,13 +77,17 @@ fn build() -> Result<(), Box<std::error::Error>> {
     Ok(())
 }
 
-fn generate_analysis() -> Result<analysis::AnalysisHost, Box<std::error::Error>> {
+fn generate_analysis(config: &Config) -> Result<analysis::AnalysisHost, Box<std::error::Error>> {
     let mut command = Command::new("cargo");
 
+    let manifest_path = config.manifest_path.to_str().unwrap();
+
     command.arg("build");
+    command.args(&["--manifest-path", manifest_path]);
 
     command.env("RUSTFLAGS", "-Z save-analysis");
-    command.env("CARGO_TARGET_DIR", "target/rls");
+    // TODO build an actual path
+    command.env("CARGO_TARGET_DIR", &format!("{}/target/rls", manifest_path));
 
     // for now, just eat the output
     command.stdout(Stdio::null());
@@ -73,8 +102,12 @@ fn generate_analysis() -> Result<analysis::AnalysisHost, Box<std::error::Error>>
     print!("loading save analysis data...");
     io::stdout().flush()?;
     let host = analysis::AnalysisHost::new(analysis::Target::Debug);
-    let dir = &env::current_dir()?;
-    host.reload(dir, dir, true).unwrap();
+    host.reload(
+            &PathBuf::from(manifest_path),
+            &PathBuf::from(manifest_path),
+            true,
+        )
+        .unwrap();
     println!("done.");
 
     Ok(host)
