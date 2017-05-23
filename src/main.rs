@@ -11,6 +11,15 @@ struct Config {
     manifest_path: PathBuf,
 }
 
+impl Config {
+    fn new(matches: &clap::ArgMatches) -> Config {
+        // unwrap is okay because we take a default value
+        let manifest_path = PathBuf::from(matches.value_of("manifest-path").unwrap());
+
+        Config { manifest_path }
+    }
+}
+
 fn main() {
     let version = env!("CARGO_PKG_VERSION");
 
@@ -18,29 +27,17 @@ fn main() {
         .version(version)
         .author("Steve Klabnik <steve@steveklabnik.com>")
         .about("Generate web-based documentation from your Rust code.")
-        .subcommand(
-            SubCommand::with_name("build")
-                .about("generates documentation")
-                .arg(
-                    Arg::with_name("manifest-path")
-                        .long("manifest-path")
-                        // remove the unwrap below if this default_value goes away
-                        .default_value(".")
-                        .help("The path to the Cargo manifest of the project you are documenting.")
-                )
+        .arg(
+            Arg::with_name("manifest-path")
+                .long("manifest-path")
+                // remove the unwrap in Config::new if this default_value goes away
+                .default_value(".")
+                .help("The path to the Cargo manifest of the project you are documenting.")
         )
+        .subcommand(SubCommand::with_name("build").about("generates documentation"))
         .get_matches();
 
-    // first unwrap is okay because we take a default value
-    let manifest_path = PathBuf::from(
-        matches
-            .subcommand_matches("build")
-            .unwrap()
-            .value_of("manifest-path")
-            .unwrap()
-    );
-
-    let config = Config { manifest_path };
+    let config = Config::new(&matches);
 
     let result = match matches.subcommand_name() {
         Some("build") => build(&config),
