@@ -1,4 +1,6 @@
+extern crate clap;
 extern crate rls_analysis as analysis;
+use clap::{Arg, App, SubCommand};
 
 use std::env;
 use std::io;
@@ -6,6 +8,24 @@ use std::io::prelude::*;
 use std::process::{Command, Stdio};
 
 fn main() {
+    let version = env!("CARGO_PKG_VERSION");
+
+    let matches = App::new("rustdoc")
+                          .version(version)
+                          .author("Steve Klabnik <steve@steveklabnik.com>")
+                          .about("Generate web-based documentation from your Rust code.")
+                          .subcommand(SubCommand::with_name("build")
+                                      .about("generates documentation"))
+                          .get_matches();
+
+    match matches.subcommand_name() {
+        Some("build") => println!("build"),
+        None        => println!("build"),
+        _           => println!("not build"),
+    }
+
+    std::process::exit(0);
+
     let mut command = Command::new("cargo");
 
     command.arg("build");
