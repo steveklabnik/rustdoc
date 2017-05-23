@@ -5,7 +5,7 @@ use clap::{Arg, App, SubCommand};
 use std::env;
 use std::io;
 use std::io::prelude::*;
-use std::process::{Command, Stdio};
+use std::process::{self, Command, Stdio};
 
 fn main() {
     let version = env!("CARGO_PKG_VERSION");
@@ -17,14 +17,20 @@ fn main() {
         .subcommand(SubCommand::with_name("build").about("generates documentation"))
         .get_matches();
 
-    match matches.subcommand_name() {
-        Some("build") => println!("build"),
-        None => println!("build"),
-        _ => println!("not build"),
+    let result = match matches.subcommand_name() {
+        Some("build") => build(),
+        None => build(),
+        _ => unreachable!(),
+    };
+
+    if let Err(e) = result {
+        println!("Application error: {}", e);
+
+        process::exit(1);
     }
+}
 
-    std::process::exit(0);
-
+fn build() -> Result<(), Box<std::error::Error>> {
     let mut command = Command::new("cargo");
 
     command.arg("build");
@@ -37,15 +43,15 @@ fn main() {
     command.stderr(Stdio::null());
 
     print!("generating save analysis data...");
-    io::stdout().flush().unwrap();
+    io::stdout().flush()?;
 
-    command.spawn().unwrap().wait().unwrap();
+    command.spawn()?.wait()?;
     println!("done.");
 
     print!("loading save analysis data...");
-    io::stdout().flush().unwrap();
+    io::stdout().flush()?;
     let host = analysis::AnalysisHost::new(analysis::Target::Debug);
-    let dir = &env::current_dir().unwrap();
+    let dir = &env::current_dir()?;
     host.reload(dir, dir, true).unwrap();
     println!("done.");
 
@@ -64,4 +70,5 @@ fn main() {
         )
         .unwrap();
 
+    Ok(())
 }
