@@ -41,8 +41,9 @@ fn main() {
 
     let result = match matches.subcommand_name() {
         Some("build") => build(&config),
+        // default is to build
         None => build(&config),
-        _ => unreachable!(),
+        Some(_) => Err("Something strange is going on with subcommands, please file a bug!".into()),
     };
 
     if let Err(e) = result {
