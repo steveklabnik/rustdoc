@@ -1,6 +1,6 @@
 extern crate clap;
 extern crate rls_analysis as analysis;
-use clap::{Arg, App, SubCommand};
+use clap::{App, SubCommand};
 
 use std::env;
 use std::io;
@@ -31,6 +31,28 @@ fn main() {
 }
 
 fn build() -> Result<(), Box<std::error::Error>> {
+    let host = generate_analysis()?;
+
+    let roots = host.def_roots().unwrap();
+
+    let &(id, _) = roots
+        .iter()
+        .find(|&&(_, ref name)| name == "example")
+        .unwrap();
+
+    println!("root elements of this crate:");
+
+    host.for_each_child_def(
+            id, |_, def| {
+                println!("{}", def.name);
+            }
+        )
+        .unwrap();
+
+    Ok(())
+}
+
+fn generate_analysis() -> Result<analysis::AnalysisHost, Box<std::error::Error>> {
     let mut command = Command::new("cargo");
 
     command.arg("build");
@@ -55,20 +77,5 @@ fn build() -> Result<(), Box<std::error::Error>> {
     host.reload(dir, dir, true).unwrap();
     println!("done.");
 
-    let roots = host.def_roots().unwrap();
-
-    let &(id, _) = roots
-        .iter()
-        .find(|&&(_, ref name)| name == "example")
-        .unwrap();
-
-    host.for_each_child_def(
-            id, |_, def| {
-                println!("{}", def.name);
-                println!("{}", def.docs);
-            }
-        )
-        .unwrap();
-
-    Ok(())
+    Ok(host)
 }
