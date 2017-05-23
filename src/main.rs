@@ -11,17 +11,16 @@ fn main() {
     let version = env!("CARGO_PKG_VERSION");
 
     let matches = App::new("rustdoc")
-                          .version(version)
-                          .author("Steve Klabnik <steve@steveklabnik.com>")
-                          .about("Generate web-based documentation from your Rust code.")
-                          .subcommand(SubCommand::with_name("build")
-                                      .about("generates documentation"))
-                          .get_matches();
+        .version(version)
+        .author("Steve Klabnik <steve@steveklabnik.com>")
+        .about("Generate web-based documentation from your Rust code.")
+        .subcommand(SubCommand::with_name("build").about("generates documentation"))
+        .get_matches();
 
     match matches.subcommand_name() {
         Some("build") => println!("build"),
-        None        => println!("build"),
-        _           => println!("not build"),
+        None => println!("build"),
+        _ => println!("not build"),
     }
 
     std::process::exit(0);
@@ -52,13 +51,17 @@ fn main() {
 
     let roots = host.def_roots().unwrap();
 
-    let &(id, _) = roots.iter().find(|&&(_, ref name)| {
-        name == "example"
-    }).unwrap();
+    let &(id, _) = roots
+        .iter()
+        .find(|&&(_, ref name)| name == "example")
+        .unwrap();
 
-    host.for_each_child_def(id, |_, def| {
-        println!("{}", def.name);
-        println!("{}", def.docs);
-    }).unwrap();
-    
+    host.for_each_child_def(
+            id, |_, def| {
+                println!("{}", def.name);
+                println!("{}", def.docs);
+            }
+        )
+        .unwrap();
+
 }
