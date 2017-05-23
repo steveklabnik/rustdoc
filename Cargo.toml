@@ -5,6 +5,7 @@ authors = ["steveklabnik <steve@steveklabnik.com>"]
 
 [dependencies]
 clap = "2.24.2"
+handlebars = "0.26.2"
 
 [dependencies.rls-analysis]
 git = "https://github.com/nrc/rls-analysis/"

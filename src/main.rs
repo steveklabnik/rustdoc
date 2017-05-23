@@ -1,10 +1,15 @@
 extern crate clap;
+extern crate handlebars;
 extern crate rls_analysis as analysis;
 
 use analysis::raw::DefKind;
 
 use clap::{App, Arg, SubCommand};
 
+use handlebars::Handlebars;
+
+use std::collections::BTreeMap;
+use std::fs::{self, File};
 use std::io;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
@@ -69,6 +74,9 @@ fn main() {
 }
 
 fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
+    print!("generating HTML/CSS/JS...");
+    io::stdout().flush()?;
+
     let roots = config.host.def_roots().unwrap();
 
     let &(id, _) = roots
@@ -76,13 +84,17 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
         .find(|&&(_, ref name)| name == "example")
         .unwrap();
 
-    println!("elements of this crate:");
-
     let defs = config
         .host
         .for_each_child_def(id, |_, def| def.clone())
         .unwrap();
-    
+
+    let mut handlebars = Handlebars::new();
+
+    // TODO: give this the manifest-path treatment
+    let index = PathBuf::from("templates/index.hbs");
+    handlebars.register_template_file("index", index)?;
+
     let kinds = vec![
         DefKind::Mod,
         DefKind::Static,
@@ -95,12 +107,31 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
         DefKind::Macro,
     ];
 
+    let mut data = BTreeMap::new();
+
     for kind in kinds {
-        println!("{:?}s:", kind);
+        let key = format!("{:?}", kind);
+        data.insert(key.clone(), Vec::new());
+
         for def in defs.iter().filter(|def| def.kind == kind) {
-            println!("{}", def.name);
+            // unwrap is okay here because we have filtered for the kind we inserted above
+            data.get_mut(&key).unwrap().push(def.name.clone());
         }
     }
+
+    let text = handlebars.render("index", &data)?;
+
+    // TODO: use real fs handling here
+    let output_path = PathBuf::from(format!("{}/target/doc", config.manifest_path.display()));
+
+    fs::create_dir_all(&output_path)?;
+
+    let output_path = output_path.join("index.html");
+
+    let mut file = File::create(output_path)?;
+    file.write_all(text.as_bytes())?;
+
+    println!("done.");
 
     Ok(())
 }

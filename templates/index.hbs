@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Rustdoc</title>
+</head>
+
+<body>
+    <h1>Rustdoc Output</h1>
+    <hr />
+
+    <h2>Modules</h2>
+    <hr />
+
+    <ul>
+        {{#each Mod as |mod| }}
+        <li>{{ mod }}</li>
+        {{/each}}
+    </ul>
+
+    <h2>Statics</h2>
+    <hr />
+
+    <ul>
+        {{#each Static as |static| }}
+        <li>{{ static }}</li>
+        {{/each}}
+    </ul>
+
+    <h2>Consts</h2>
+    <hr />
+
+    <ul>
+        {{#each Const as |const| }}
+        <li>{{ const }}</li>
+        {{/each}}
+    </ul>
+
+    <h2>Enums</h2>
+    <hr />
+
+    <ul>
+        {{#each Enum as |enum| }}
+        <li>{{ enum }}</li>
+        {{/each}}
+    </ul>
+
+    <h2>Structs</h2>
+    <hr />
+
+    <ul>
+        {{#each Struct as |struct| }}
+        <li>{{ struct }}</li>
+        {{/each}}
+    </ul>
+
+    <h2>Unions</h2>
+    <hr />
+
+    <ul>
+        {{#each Union as |union| }}
+        <li>{{ union }}</li>
+        {{/each}}
+    </ul>
+
+    <h2>Traits</h2>
+    <hr />
+
+    <ul>
+        {{#each Trait as |trait| }}
+        <li>{{ trait }}</li>
+        {{/each}}
+    </ul>
+
+    <h2>Functions</h2>
+    <hr />
+
+    <ul>
+        {{#each Function as |function| }}
+        <li>{{ function }}</li>
+        {{/each}}
+    </ul>
+
+    <h2>Macros</h2>
+    <hr />
+
+    <ul>
+        {{#each Macro as |macro| }}
+        <li>{{ macro }}</li>
+        {{/each}}
+    </ul>
+
+</body>
+
+</html>
