@@ -4,19 +4,26 @@ use clap::{App, Arg, SubCommand};
 
 use std::io;
 use std::io::prelude::*;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{self, Command, Stdio};
 
 struct Config {
     manifest_path: PathBuf,
+    host: analysis::AnalysisHost,
 }
 
 impl Config {
-    fn new(matches: &clap::ArgMatches) -> Config {
+    fn new(matches: &clap::ArgMatches) -> Result<Config, Box<std::error::Error>> {
         // unwrap is okay because we take a default value
         let manifest_path = PathBuf::from(matches.value_of("manifest-path").unwrap());
+        let host = generate_analysis(&manifest_path)?;
 
-        Config { manifest_path }
+        Ok(
+            Config {
+                manifest_path,
+                host,
+            }
+        )
     }
 }
 
@@ -37,7 +44,12 @@ fn main() {
         .subcommand(SubCommand::with_name("build").about("generates documentation"))
         .get_matches();
 
-    let config = Config::new(&matches);
+    let config = Config::new(&matches).unwrap_or_else(
+        |err| {
+            println!("Problem creating configuration: {}", err);
+            process::exit(1);
+        }
+    );
 
     let result = match matches.subcommand_name() {
         Some("build") => build(&config),
@@ -54,9 +66,7 @@ fn main() {
 }
 
 fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
-    let host = generate_analysis(config)?;
-
-    let roots = host.def_roots().unwrap();
+    let roots = config.host.def_roots().unwrap();
 
     let &(id, _) = roots
         .iter()
@@ -65,7 +75,9 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
 
     println!("root elements of this crate:");
 
-    host.for_each_child_def(
+    config
+        .host
+        .for_each_child_def(
             id, |_, def| {
                 println!("{}", def.name);
             }
@@ -75,10 +87,11 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
     Ok(())
 }
 
-fn generate_analysis(config: &Config) -> Result<analysis::AnalysisHost, Box<std::error::Error>> {
+fn generate_analysis(manifest_path: &Path)
+    -> Result<analysis::AnalysisHost, Box<std::error::Error>> {
     let mut command = Command::new("cargo");
 
-    let manifest_path = config.manifest_path.to_str().unwrap();
+    let manifest_path = manifest_path.to_str().unwrap();
 
     command.arg("build");
     command.args(&["--manifest-path", manifest_path]);
