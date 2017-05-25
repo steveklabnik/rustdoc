@@ -26,12 +26,10 @@ impl Config {
         let manifest_path = PathBuf::from(matches.value_of("manifest-path").unwrap());
         let host = generate_analysis(&manifest_path)?;
 
-        Ok(
-            Config {
-                manifest_path,
-                host,
-            }
-        )
+        Ok(Config {
+               manifest_path,
+               host,
+           })
     }
 }
 
@@ -42,22 +40,18 @@ fn main() {
         .version(version)
         .author("Steve Klabnik <steve@steveklabnik.com>")
         .about("Generate web-based documentation from your Rust code.")
-        .arg(
-            Arg::with_name("manifest-path")
+        .arg(Arg::with_name("manifest-path")
                 .long("manifest-path")
                 // remove the unwrap in Config::new if this default_value goes away
                 .default_value(".")
-                .help("The path to the Cargo manifest of the project you are documenting.")
-        )
+                .help("The path to the Cargo manifest of the project you are documenting."))
         .subcommand(SubCommand::with_name("build").about("generates documentation"))
         .get_matches();
 
-    let config = Config::new(&matches).unwrap_or_else(
-        |err| {
-            println!("Problem creating configuration: {}", err);
-            process::exit(1);
-        }
-    );
+    let config = Config::new(&matches).unwrap_or_else(|err| {
+        println!("Problem creating configuration: {}", err);
+        process::exit(1);
+    });
 
     let result = match matches.subcommand_name() {
         Some("build") => build(&config),
@@ -77,17 +71,14 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
     print!("generating HTML/CSS/JS...");
     io::stdout().flush()?;
 
-    let roots = config.host.def_roots().unwrap();
+    let roots = config.host.def_roots()?;
 
     let &(id, _) = roots
         .iter()
         .find(|&&(_, ref name)| name == "example")
         .unwrap();
 
-    let defs = config
-        .host
-        .for_each_child_def(id, |_, def| def.clone())
-        .unwrap();
+    let defs = config.host.for_each_child_def(id, |_, def| def.clone())?;
 
     let mut handlebars = Handlebars::new();
 
@@ -95,17 +86,15 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
     let index = PathBuf::from("templates/index.hbs");
     handlebars.register_template_file("index", index)?;
 
-    let kinds = vec![
-        DefKind::Mod,
-        DefKind::Static,
-        DefKind::Const,
-        DefKind::Enum,
-        DefKind::Struct,
-        DefKind::Union,
-        DefKind::Trait,
-        DefKind::Function,
-        DefKind::Macro,
-    ];
+    let kinds = vec![DefKind::Mod,
+                     DefKind::Static,
+                     DefKind::Const,
+                     DefKind::Enum,
+                     DefKind::Struct,
+                     DefKind::Union,
+                     DefKind::Trait,
+                     DefKind::Function,
+                     DefKind::Macro];
 
     let mut data = BTreeMap::new();
 
@@ -137,7 +126,7 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
 }
 
 fn generate_analysis(manifest_path: &Path)
-    -> Result<analysis::AnalysisHost, Box<std::error::Error>> {
+                     -> Result<analysis::AnalysisHost, Box<std::error::Error>> {
     let mut command = Command::new("cargo");
 
     let manifest_path = manifest_path.to_str().unwrap();
@@ -162,13 +151,11 @@ fn generate_analysis(manifest_path: &Path)
     print!("loading save analysis data...");
     io::stdout().flush()?;
     let host = analysis::AnalysisHost::new(analysis::Target::Debug);
-    host.reload(
-            &PathBuf::from(manifest_path),
-            &PathBuf::from(manifest_path),
-            true,
-        )
-        .unwrap();
+    host.reload(&PathBuf::from(manifest_path),
+                &PathBuf::from(manifest_path),
+                true)?;
     println!("done.");
 
     Ok(host)
 }
+
