@@ -13,7 +13,7 @@ use std::fs::{self, File};
 use std::io;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
-use std::process::{self, Command, Stdio};
+use std::process::{self, Command};
 
 struct Config {
     manifest_path: PathBuf,
@@ -132,20 +132,21 @@ fn generate_analysis(manifest_path: &Path)
     let manifest_path = manifest_path.to_str().unwrap();
 
     command.arg("build");
-    command.args(&["--manifest-path", manifest_path]);
-
+    // TODO build an actual path
+    command.args(&["--manifest-path", &format!("{}/Cargo.toml", manifest_path)]);
     command.env("RUSTFLAGS", "-Z save-analysis");
     // TODO build an actual path
     command.env("CARGO_TARGET_DIR", &format!("{}/target/rls", manifest_path));
 
-    // for now, just eat the output
-    command.stdout(Stdio::null());
-    command.stderr(Stdio::null());
-
     print!("generating save analysis data...");
     io::stdout().flush()?;
 
-    command.spawn()?.wait()?;
+    let output = command.output()?;
+
+    if !output.status.success() {
+        println!("");
+        return Err(format!("Cargo failed with status {}. stderr:\n{}", output.status, String::from_utf8_lossy(&output.stderr)).into());
+    }
     println!("done.");
 
     print!("loading save analysis data...");
