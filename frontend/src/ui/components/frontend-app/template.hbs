@@ -1,3 +1,11 @@
-<div>
-  <h1>Welcome to Glimmer!</h1>
-</div>
+<ul>
+
+  {{#each results.data key="@index" as |data|}}
+
+      <h2>{{data.attributes.name}}</h2>
+      <p>{{data.attributes.docstring}}</p>
+
+  {{/each}}
+
+</ul>
+

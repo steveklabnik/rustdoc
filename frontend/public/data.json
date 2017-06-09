@@ -1,0 +1,13 @@
+{
+  "data": [{
+    "type": "module",
+    "id": "1",
+    "attributes": {
+      "name": "example_module",
+      "docstring": " An example module\n\n This is mostly so that we can check the docs."
+    },
+    "links": {
+      "self": "/modules/1"
+    }
+  }]
+}
