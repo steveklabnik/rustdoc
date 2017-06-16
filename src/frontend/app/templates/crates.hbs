@@ -1,0 +1,15 @@
+<h1>Crate {{ model.id }}</h1>
+{{markdown-render model.docs }}
+
+<h2>Modules</h2>
+<ul>
+{{#each model.modules as |mod|}}
+  <li>
+    {{#link-to 'modules' model.id mod.name }}
+      {{ mod.name }}
+    {{/link-to}}
+  </li>
+{{/each}}
+</ul>
+
+{{outlet}}

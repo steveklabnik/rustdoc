@@ -1,0 +1,6 @@
+{
+  "name": "frontend",
+  "dependencies": {
+    "markdown-it": "^8.3.1"
+  }
+}

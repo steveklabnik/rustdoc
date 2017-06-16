@@ -1,0 +1,31 @@
+{
+    "data": [
+        {
+            "type": "crate",
+            "id": "example",
+            "attributes": {
+                "docs": "zomg docs"
+            },
+            "relationships": {
+                "modules": {
+                    "data": [
+                        {
+                            "type": "module",
+                            "id": "example::foo"
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "included": [
+        {
+            "type": "module",
+            "id": "example::foo",
+            "attributes": {
+                "name": "foo",
+                "docs": "oh boy\n\n*THIS*"
+            }
+        }
+    ]
+}

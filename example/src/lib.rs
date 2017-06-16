@@ -1,3 +1,10 @@
+//! An example crate.
+//!
+//! This crate is used to test out the new rustdoc.
+//!
+//! It should have an example of almost everything, for testing
+//! purposes.
+
 /// An example struct.
 ///
 /// This is mostly so that we can check the docs.
