@@ -1,12 +1,9 @@
 extern crate clap;
-extern crate handlebars;
 extern crate rls_analysis as analysis;
 
 use analysis::raw::DefKind;
 
 use clap::{App, Arg, SubCommand};
-
-use handlebars::Handlebars;
 
 use std::collections::BTreeMap;
 use std::fs::{self, File};
@@ -86,12 +83,6 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
 
     let defs = config.host.for_each_child_def(id, |_, def| def.clone())?;
 
-    let mut handlebars = Handlebars::new();
-
-    // TODO: give this the manifest-path treatment
-    let index = PathBuf::from("templates/index.hbs");
-    handlebars.register_template_file("index", index)?;
-
     let kinds = vec![
         DefKind::Mod,
         DefKind::Static,
@@ -116,8 +107,6 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
         }
     }
 
-    let text = handlebars.render("index", &data)?;
-
     // TODO: use real fs handling here
     let output_path = PathBuf::from(format!("{}/target/doc", config.manifest_path.display()));
 
@@ -125,8 +114,10 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
 
     let output_path = output_path.join("index.html");
 
+    /* not for now...
     let mut file = File::create(output_path)?;
     file.write_all(text.as_bytes())?;
+    */
 
     println!("done.");
 
