@@ -1,9 +1,13 @@
 extern crate clap;
+extern crate jsonapi;
 extern crate rls_analysis as analysis;
+extern crate serde_json;
 
 use analysis::raw::DefKind;
 
 use clap::{App, Arg, SubCommand};
+
+use jsonapi::api::JsonApiDocument;
 
 use std::collections::BTreeMap;
 use std::fs::{self, File};
@@ -44,9 +48,9 @@ fn main() {
                 .default_value(".")
                 .help("The path to the Cargo manifest of the project you are documenting."),
         )
-        .subcommand(SubCommand::with_name("build").about(
-            "generates documentation",
-        ))
+        .subcommand(
+            SubCommand::with_name("build").about("generates documentation"),
+        )
         .get_matches();
 
     let config = Config::new(&matches).unwrap_or_else(|err| {
@@ -112,12 +116,33 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
 
     fs::create_dir_all(&output_path)?;
 
-    let output_path = output_path.join("index.html");
-
     /* not for now...
     let mut file = File::create(output_path)?;
     file.write_all(text.as_bytes())?;
     */
+    pub fn read_json_file(filename: &str) -> String {
+        use std::error::Error;
+        let path = Path::new(filename);
+        let display = path.display();
+
+        let mut file = match File::open(&path) {
+            Err(why) => panic!("couldn't open {}: {}", display, Error::description(&why)),
+            Ok(file) => file,
+        };
+
+        let mut s = String::new();
+
+        if let Err(why) = file.read_to_string(&mut s) {
+            panic!("couldn't read {}: {}", display, Error::description(&why));
+        };
+
+        s
+    }
+
+    let s = read_json_file("frontend/public/data.json");
+    let data: Result<JsonApiDocument, serde_json::Error> = serde_json::from_str(&s);
+
+    println!("{:#?}", data.unwrap());
 
     println!("done.");
 
@@ -152,7 +177,8 @@ fn generate_analysis(
                 "Cargo failed with status {}. stderr:\n{}",
                 output.status,
                 String::from_utf8_lossy(&output.stderr)
-            ).into(),
+            )
+                .into(),
         );
     }
     println!("done.");
@@ -169,3 +195,4 @@ fn generate_analysis(
 
     Ok(host)
 }
+

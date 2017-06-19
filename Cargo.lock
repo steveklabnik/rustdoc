@@ -5,6 +5,7 @@ dependencies = [
  "clap 2.24.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonapi 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "rls-analysis 0.4.0 (git+https://github.com/nrc/rls-analysis/)",
+ "serde_json 0.9.10 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
