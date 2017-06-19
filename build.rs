@@ -14,8 +14,12 @@ fn main() {
     let output = output.output().unwrap();
 
     if !output.status.success() {
-        panic!("build script failed with status {}. stderr:\n{}", output.status, String::from_utf8_lossy(&output.stderr));
+        panic!(
+            "build script failed with status {}. stderr:\n{}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
-    
+
     println!("cargo:rerun-if-changed=frontend")
 }

@@ -27,9 +27,9 @@ impl Config {
         let host = generate_analysis(&manifest_path)?;
 
         Ok(Config {
-               manifest_path,
-               host,
-           })
+            manifest_path,
+            host,
+        })
     }
 }
 
@@ -40,12 +40,16 @@ fn main() {
         .version(version)
         .author("Steve Klabnik <steve@steveklabnik.com>")
         .about("Generate web-based documentation from your Rust code.")
-        .arg(Arg::with_name("manifest-path")
+        .arg(
+            Arg::with_name("manifest-path")
                 .long("manifest-path")
                 // remove the unwrap in Config::new if this default_value goes away
                 .default_value(".")
-                .help("The path to the Cargo manifest of the project you are documenting."))
-        .subcommand(SubCommand::with_name("build").about("generates documentation"))
+                .help("The path to the Cargo manifest of the project you are documenting."),
+        )
+        .subcommand(SubCommand::with_name("build").about(
+            "generates documentation",
+        ))
         .get_matches();
 
     let config = Config::new(&matches).unwrap_or_else(|err| {
@@ -57,7 +61,9 @@ fn main() {
         Some("build") => build(&config),
         // default is to build
         None => build(&config),
-        Some(_) => Err("Something strange is going on with subcommands, please file a bug!".into()),
+        Some(_) => Err(
+            "Something strange is going on with subcommands, please file a bug!".into(),
+        ),
     };
 
     if let Err(e) = result {
@@ -86,15 +92,17 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
     let index = PathBuf::from("templates/index.hbs");
     handlebars.register_template_file("index", index)?;
 
-    let kinds = vec![DefKind::Mod,
-                     DefKind::Static,
-                     DefKind::Const,
-                     DefKind::Enum,
-                     DefKind::Struct,
-                     DefKind::Union,
-                     DefKind::Trait,
-                     DefKind::Function,
-                     DefKind::Macro];
+    let kinds = vec![
+        DefKind::Mod,
+        DefKind::Static,
+        DefKind::Const,
+        DefKind::Enum,
+        DefKind::Struct,
+        DefKind::Union,
+        DefKind::Trait,
+        DefKind::Function,
+        DefKind::Macro,
+    ];
 
     let mut data = BTreeMap::new();
 
@@ -125,15 +133,18 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
     Ok(())
 }
 
-fn generate_analysis(manifest_path: &Path)
-                     -> Result<analysis::AnalysisHost, Box<std::error::Error>> {
+fn generate_analysis(
+    manifest_path: &Path,
+) -> Result<analysis::AnalysisHost, Box<std::error::Error>> {
     let mut command = Command::new("cargo");
 
     let manifest_path = manifest_path.to_str().unwrap();
 
     command.arg("build");
     // TODO build an actual path
-    command.args(&["--manifest-path", &format!("{}/Cargo.toml", manifest_path)]);
+    command.args(
+        &["--manifest-path", &format!("{}/Cargo.toml", manifest_path)],
+    );
     command.env("RUSTFLAGS", "-Z save-analysis");
     // TODO build an actual path
     command.env("CARGO_TARGET_DIR", &format!("{}/target/rls", manifest_path));
@@ -145,18 +156,25 @@ fn generate_analysis(manifest_path: &Path)
 
     if !output.status.success() {
         println!("");
-        return Err(format!("Cargo failed with status {}. stderr:\n{}", output.status, String::from_utf8_lossy(&output.stderr)).into());
+        return Err(
+            format!(
+                "Cargo failed with status {}. stderr:\n{}",
+                output.status,
+                String::from_utf8_lossy(&output.stderr)
+            ).into(),
+        );
     }
     println!("done.");
 
     print!("loading save analysis data...");
     io::stdout().flush()?;
     let host = analysis::AnalysisHost::new(analysis::Target::Debug);
-    host.reload(&PathBuf::from(manifest_path),
-                &PathBuf::from(manifest_path),
-                true)?;
+    host.reload(
+        &PathBuf::from(manifest_path),
+        &PathBuf::from(manifest_path),
+        true,
+    )?;
     println!("done.");
 
     Ok(host)
 }
-
