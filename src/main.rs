@@ -17,6 +17,20 @@ use std::process::{self, Command};
 struct Config {
     manifest_path: PathBuf,
     host: analysis::AnalysisHost,
+    assets: Assets,
+}
+
+/// Static assets compiled into the binary so we get a single executable.
+///
+/// In the future I expect these to be Cow<'static, str>s to support dynamic assets
+struct Assets {
+    crossdomain_xml: &'static str,
+    index_html: &'static str,
+    robots_txt: &'static str,
+    frontend_js: &'static str,
+    frontend_css: &'static str,
+    vendor_js: &'static str,
+    vendor_css: &'static str,
 }
 
 impl Config {
@@ -25,9 +39,21 @@ impl Config {
         let manifest_path = PathBuf::from(matches.value_of("manifest-path").unwrap());
         let host = generate_analysis(&manifest_path)?;
 
+        // TODO: stop being so hilariously hard-coded
+        let assets = Assets {
+            crossdomain_xml: include_str!("../frontend/dist/crossdomain.xml"),
+            index_html: include_str!("../frontend/dist/index.html"),
+            robots_txt: include_str!("../frontend/dist/robots.txt"),
+            frontend_js: include_str!("../frontend/dist/assets/frontend-0da8276493f72a2ba7d806a3de281626.js"),
+            frontend_css: include_str!("../frontend/dist/assets/frontend-d41d8cd98f00b204e9800998ecf8427e.css"),
+            vendor_js: include_str!("../frontend/dist/assets/vendor-315855171bdc0bd4fe4df9973f5d2ece.js"),
+            vendor_css: include_str!("../frontend/dist/assets/vendor-d41d8cd98f00b204e9800998ecf8427e.css"),
+        };
+
         Ok(Config {
             manifest_path,
             host,
+            assets,
         })
     }
 }
@@ -110,10 +136,11 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
     }
 
     // TODO: use real fs handling here
-    // TODO: write to the correct path
-    //let output_path = PathBuf::from(format!("{}/target/doc", config.manifest_path.display()));
-    //fs::create_dir_all(&output_path)?;
-    let output_path = PathBuf::from(r".\frontend\public\data.json");
+    let output_path = PathBuf::from(format!("{}/target/doc", config.manifest_path.display()));
+    fs::create_dir_all(&output_path)?;
+
+    let mut json_path = output_path.clone();
+    json_path.push("data.json");
 
     use jsonapi::api::*;
 
@@ -172,10 +199,36 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
 
     let serialized = serde_json::to_string(&document)?;
 
-    let mut file = File::create(output_path)?;
+    let mut file = File::create(json_path)?;
     file.write_all(serialized.as_bytes())?;
+    
+    // now that we've written out the data, we can write out the rest of it
+    create_asset_file("crossdomain.xml", &output_path, config.assets.crossdomain_xml)?;
+    create_asset_file("index.html", &output_path, config.assets.index_html)?;
+    create_asset_file("robots.txt", &output_path, config.assets.robots_txt)?;
+    create_asset_file("crossdomain.xml", &output_path, config.assets.crossdomain_xml)?;
+
+    let mut assets_path = output_path.clone();
+    assets_path.push("assets");
+    fs::create_dir_all(&assets_path)?;
+
+    // TODO: stop being so hilariously hard-coded
+    create_asset_file("frontend-0da8276493f72a2ba7d806a3de281626.js", &assets_path, config.assets.frontend_js)?;
+    create_asset_file("frontend-d41d8cd98f00b204e9800998ecf8427e.css", &assets_path, config.assets.frontend_css)?;
+    create_asset_file("vendor-315855171bdc0bd4fe4df9973f5d2ece.js", &assets_path, config.assets.vendor_js)?;
+    create_asset_file(".vendor-d41d8cd98f00b204e9800998ecf8427e.css", &assets_path, config.assets.vendor_css)?;
 
     println!("done.");
+
+    Ok(())
+}
+    
+fn create_asset_file(name: &str, path: &Path, data: &str) -> Result<(), Box<std::error::Error>> {
+    let mut asset_path = path.to_path_buf();
+    asset_path.push(name);
+
+    let mut file = File::create(asset_path)?;
+    file.write_all(data.as_bytes())?;
 
     Ok(())
 }
