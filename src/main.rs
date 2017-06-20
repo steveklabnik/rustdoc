@@ -46,9 +46,9 @@ fn main() {
                 .default_value(".")
                 .help("The path to the Cargo manifest of the project you are documenting."),
         )
-        .subcommand(
-            SubCommand::with_name("build").about("generates documentation"),
-        )
+        .subcommand(SubCommand::with_name("build").about(
+            "generates documentation",
+        ))
         .get_matches();
 
     let config = Config::new(&matches).unwrap_or_else(|err| {
@@ -120,13 +120,18 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
     let mut document = JsonApiDocument::default();
 
     let mut map = HashMap::new();
-    map.insert(String::from("docs"), serde_json::Value::String(String::from("zomg docs")));
+    map.insert(
+        String::from("docs"),
+        serde_json::Value::String(String::from("zomg docs")),
+    );
 
     let relationship = Relationship {
-        data: IdentifierData::Multiple(vec![ResourceIdentifier{
-            _type: String::from("module"),
-            id: String::from("example::foo"),
-        }]),
+        data: IdentifierData::Multiple(vec![
+            ResourceIdentifier {
+                _type: String::from("module"),
+                id: String::from("example::foo"),
+            },
+        ]),
         links: None,
     };
 
@@ -145,8 +150,14 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
     document.data = Some(PrimaryData::Single(Box::new(krate)));
 
     let mut map = HashMap::new();
-    map.insert(String::from("name"), serde_json::Value::String(String::from("foo")));
-    map.insert(String::from("docs"), serde_json::Value::String(String::from("oh boy\n\n*THIS*")));
+    map.insert(
+        String::from("name"),
+        serde_json::Value::String(String::from("foo")),
+    );
+    map.insert(
+        String::from("docs"),
+        serde_json::Value::String(String::from("oh boy\n\n*THIS*")),
+    );
 
     let module = Resource {
         _type: String::from("module"),
@@ -197,8 +208,7 @@ fn generate_analysis(
                 "Cargo failed with status {}. stderr:\n{}",
                 output.status,
                 String::from_utf8_lossy(&output.stderr)
-            )
-                .into(),
+            ).into(),
         );
     }
     println!("done.");
@@ -215,4 +225,3 @@ fn generate_analysis(
 
     Ok(host)
 }
-
