@@ -24,6 +24,12 @@ pub fn sample_function(x: i32) -> ExampleStruct {
     ExampleStruct
 }
 
+/// An example module
+///
+/// # Safety
+///
+/// Everything in this module is safe code, don't worry. If there was something unsafe,
+/// we'd use **GLORIOUS BOLD** *and italics* to highlight it.
 pub mod example_module {
     pub struct AnotherStruct;
 }

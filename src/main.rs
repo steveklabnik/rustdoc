@@ -148,7 +148,7 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
 
         for def in defs.iter().filter(|def| def.kind == kind) {
             // unwrap is okay here because we have filtered for the kind we inserted above
-            data.get_mut(&key).unwrap().push((def.name.clone(), def.docs.clone()));
+            data.get_mut(&key).unwrap().push(def.clone());
         }
     }
 
@@ -169,17 +169,45 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
         serde_json::Value::String(root_def.docs.clone()),
     );
 
-    let relationship = Relationship {
-        data: IdentifierData::Multiple(vec![
-            ResourceIdentifier {
-                _type: String::from("module"),
-                id: String::from("example::foo"),
-            },
-        ]),
+    let mut relationships = HashMap::new();
+
+    let mut relationship = Relationship {
+        data: IdentifierData::Multiple(Vec::new()),
         links: None,
     };
 
-    let mut relationships = HashMap::new();
+    //TODO this is bad, use real option handling in the loop
+    document.included = Some(Vec::new());
+
+    for def in &data["Mod"] {
+        if let IdentifierData::Multiple(ref mut v) = relationship.data {
+            v.push(ResourceIdentifier {
+                _type: String::from("module"),
+                id: def.qualname.clone(),
+            });
+        };
+        let mut map = HashMap::new();
+        map.insert(
+            String::from("name"),
+            serde_json::Value::String(def.name.clone()),
+        );
+        map.insert(
+            String::from("docs"),
+            serde_json::Value::String(def.docs.clone()),
+        );
+
+        let module = Resource {
+            _type: String::from("module"),
+            id: def.qualname.clone(),
+            attributes: map,
+            links: None,
+            meta: None,
+            relationships: None,
+        };
+
+        document.included.as_mut().map(|v| v.push(module));
+    }
+
     relationships.insert(String::from("modules"), relationship);
 
     let len = root_def.qualname.len();
@@ -194,27 +222,6 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
     };
 
     document.data = Some(PrimaryData::Single(Box::new(krate)));
-
-    let mut map = HashMap::new();
-    map.insert(
-        String::from("name"),
-        serde_json::Value::String(String::from("foo")),
-    );
-    map.insert(
-        String::from("docs"),
-        serde_json::Value::String(String::from("oh boy\n\n*THIS*")),
-    );
-
-    let module = Resource {
-        _type: String::from("module"),
-        id: String::from("example::foo"),
-        attributes: map,
-        links: None,
-        meta: None,
-        relationships: None,
-    };
-
-    document.included = Some(vec![module]);
 
     let serialized = serde_json::to_string(&document)?;
 
