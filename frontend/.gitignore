@@ -1,8 +1,14 @@
 # See https://help.github.com/ignore-files/ for more about ignoring files.
 
 # compiled output
-/dist
 /tmp
+
+# For now we want to be able to vendor this stuff, so that you don't need node
+# to install and use rustdoc, only when developing.
+#/dist
+
+# This one doesn't need to be kept though
+dist/data.json
 
 # dependencies
 /node_modules
