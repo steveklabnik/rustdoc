@@ -6,7 +6,15 @@ export default Ember.Route.extend({
     },
 
     _populateStore() {
-        return Ember.$.getJSON('/data.json').then(data => {
+        // sigh https://stackoverflow.com/questions/2618959/
+        Ember.$.ajaxSetup({
+            beforeSend: function (xhr) {
+                if (xhr.overrideMimeType) {
+                    xhr.overrideMimeType("application/json");
+                }
+            }
+        });
+        return Ember.$.getJSON('data.json').then(data => {
             this.store.push(data);
         });
     }
