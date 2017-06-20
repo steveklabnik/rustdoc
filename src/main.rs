@@ -7,9 +7,7 @@ use analysis::raw::DefKind;
 
 use clap::{App, Arg, SubCommand};
 
-use jsonapi::api::JsonApiDocument;
-
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs::{self, File};
 use std::io;
 use std::io::prelude::*;
@@ -75,7 +73,7 @@ fn main() {
 }
 
 fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
-    print!("generating HTML/CSS/JS...");
+    print!("generating JSON...");
     io::stdout().flush()?;
 
     let roots = config.host.def_roots()?;
@@ -112,37 +110,59 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
     }
 
     // TODO: use real fs handling here
-    let output_path = PathBuf::from(format!("{}/target/doc", config.manifest_path.display()));
+    // TODO: write to the correct path
+    //let output_path = PathBuf::from(format!("{}/target/doc", config.manifest_path.display()));
+    //fs::create_dir_all(&output_path)?;
+    let output_path = PathBuf::from(r".\frontend\public\data.json");
 
-    fs::create_dir_all(&output_path)?;
+    use jsonapi::api::*;
 
-    /* not for now...
+    let mut document = JsonApiDocument::default();
+
+    let mut map = HashMap::new();
+    map.insert(String::from("docs"), serde_json::Value::String(String::from("zomg docs")));
+
+    let relationship = Relationship {
+        data: IdentifierData::Multiple(vec![ResourceIdentifier{
+            _type: String::from("module"),
+            id: String::from("example::foo"),
+        }]),
+        links: None,
+    };
+
+    let mut relationships = HashMap::new();
+    relationships.insert(String::from("modules"), relationship);
+
+    let krate = Resource {
+        _type: String::from("crate"),
+        id: String::from("example"),
+        attributes: map,
+        links: None,
+        meta: None,
+        relationships: Some(relationships),
+    };
+
+    document.data = Some(PrimaryData::Single(Box::new(krate)));
+
+    let mut map = HashMap::new();
+    map.insert(String::from("name"), serde_json::Value::String(String::from("foo")));
+    map.insert(String::from("docs"), serde_json::Value::String(String::from("oh boy\n\n*THIS*")));
+
+    let module = Resource {
+        _type: String::from("module"),
+        id: String::from("example::foo"),
+        attributes: map,
+        links: None,
+        meta: None,
+        relationships: None,
+    };
+
+    document.included = Some(vec![module]);
+
+    let serialized = serde_json::to_string(&document)?;
+
     let mut file = File::create(output_path)?;
-    file.write_all(text.as_bytes())?;
-    */
-    pub fn read_json_file(filename: &str) -> String {
-        use std::error::Error;
-        let path = Path::new(filename);
-        let display = path.display();
-
-        let mut file = match File::open(&path) {
-            Err(why) => panic!("couldn't open {}: {}", display, Error::description(&why)),
-            Ok(file) => file,
-        };
-
-        let mut s = String::new();
-
-        if let Err(why) = file.read_to_string(&mut s) {
-            panic!("couldn't read {}: {}", display, Error::description(&why));
-        };
-
-        s
-    }
-
-    let s = read_json_file("frontend/public/data.json");
-    let data: Result<JsonApiDocument, serde_json::Error> = serde_json::from_str(&s);
-
-    println!("{:#?}", data.unwrap());
+    file.write_all(serialized.as_bytes())?;
 
     println!("done.");
 
