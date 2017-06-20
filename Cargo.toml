@@ -4,9 +4,7 @@ version = "0.1.0"
 authors = ["steveklabnik <steve@steveklabnik.com>"]
 
 [dependencies]
+rls-analysis = "0.4.0"
 clap = "2.24.2"
 jsonapi = "0.5.2"
 serde_json = "0.9.10"
-
-[dependencies.rls-analysis]
-git = "https://github.com/nrc/rls-analysis/"
