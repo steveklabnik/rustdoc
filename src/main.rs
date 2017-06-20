@@ -124,6 +124,8 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
         .find(|&&(_, ref name)| name == "example")
         .unwrap();
 
+    let root_def = config.host.get_def(id)?;
+
     let defs = config.host.for_each_child_def(id, |_, def| def.clone())?;
 
     let kinds = vec![
@@ -146,7 +148,7 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
 
         for def in defs.iter().filter(|def| def.kind == kind) {
             // unwrap is okay here because we have filtered for the kind we inserted above
-            data.get_mut(&key).unwrap().push(def.name.clone());
+            data.get_mut(&key).unwrap().push((def.name.clone(), def.docs.clone()));
         }
     }
 
@@ -164,7 +166,7 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
     let mut map = HashMap::new();
     map.insert(
         String::from("docs"),
-        serde_json::Value::String(String::from("zomg docs")),
+        serde_json::Value::String(root_def.docs.clone()),
     );
 
     let relationship = Relationship {
@@ -180,9 +182,11 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
     let mut relationships = HashMap::new();
     relationships.insert(String::from("modules"), relationship);
 
+    let len = root_def.qualname.len();
     let krate = Resource {
         _type: String::from("crate"),
-        id: String::from("example"),
+        // example:: -> example
+        id: root_def.qualname[..(len - 2)].to_string(),
         attributes: map,
         links: None,
         meta: None,
