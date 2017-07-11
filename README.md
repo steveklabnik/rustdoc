@@ -56,6 +56,13 @@ those generated files.
 
 ## Contributing
 
-We're currently not accepting contributions until [a license is
-added](https://github.com/steveklabnik/rustdoc/issues/5), but that shouldn't be
-long! We'll put instructions here once that lands.
+We'd love your help with making `rustdoc` better! It's currently very early days, so
+there's a lot to do. Here's a quick overview:
+
+1. `rustdoc` is dual licensed under the MIT and Apache 2.0 licenses, and so contributions
+   are also licensed under both.
+2. Contributions go through pull requests to the `master` branch.
+3. Check out the [issue tracker](https://github.com/steveklabnik/rustdoc) to follow the
+   development of `rustdoc`.
+
+For more details, see the `CONTRIBUTING.md` file.
