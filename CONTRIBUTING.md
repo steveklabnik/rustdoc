@@ -3,7 +3,7 @@
 Thank you for your interest in making `rustdoc` better! We'd love to have your
 contribution. We expect all contributors to abide by the [Rust code of
 conduct](https://www.rust-lang.org/en-US/conduct.html), which you can find at
-that link or in the CONDUCT.md file in this repository.
+that link or in the CODE_OF_CONDUCT.md file in this repository.
 
 ## License
 
