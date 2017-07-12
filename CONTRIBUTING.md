@@ -35,14 +35,20 @@ We have several tags for issues:
 
  5 labels
 
-* **help wanted** are issues explicitly marked for new contributors to work on. We'll help
-  answer any questions you might have. If you've got your eyes on a ticket that doesn't have this tag, feel free to tackle it if you'd prefer! This is just a suggestion.
+* **help wanted** are issues explicitly marked for new contributors to work on.
+  We'll help answer any questions you might have. If you've got your eyes on a
+  ticket that doesn't have this tag, feel free to tackle it if you'd prefer!
+  This is just a suggestion.
+* **quest** issues are "big picture" things that are fairly open-ended, and are
+  just waiting for some enthusiastic contributor to come along and knock them
+  out! It's a lot of work, but you also have the chance to make a huge impact.
+* **question** issues are for getting help with `rustdoc` in some way.
+* **bug** issues track something `rustdoc` isn't doing correctly.
+* **enhancement** issues keep track of things `rustdoc` should be doing that it
+  doesn't do quite just yet.
+* **refactoring** issues track work we can do to clean up the code a bit.
 * **blocked on upstream** means that this bug is waiting on something in another
   repository; that might be the compiler, `rls-analysis`, or something else.
-* **bug** issues track something `rustdoc` isn't doing correctly.
-* **enhancement** issues keep track of things `rustdoc` should be doing that it doesn't do
-  quite just yet.
-* **question** issues are for getting help with `rustdoc` in some way.
 
 ## Frontend Development Workflow
 
