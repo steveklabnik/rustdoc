@@ -71,7 +71,7 @@ pub fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
     let roots = config.host.def_roots()?;
 
     // the list of built-in crates. not sure if we want to whitelist these or something?
-    /* 
+    /*
     "rand", "collections", "std", "panic_unwind", "std_unicode",
     "alloc_system", "unwind", "core", "libc", "alloc", "panic_abort",
     "compiler_builtins"
