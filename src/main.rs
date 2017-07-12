@@ -45,13 +45,13 @@ impl Config {
             index_html: include_str!("../frontend/dist/index.html"),
             robots_txt: include_str!("../frontend/dist/robots.txt"),
             frontend_js: include_str!(
-                "../frontend/dist/assets/frontend-0da8276493f72a2ba7d806a3de281626.js"
+                "../frontend/dist/assets/frontend-c6c060f7a38307646632f4d86abb552b.js"
             ),
             frontend_css: include_str!(
                 "../frontend/dist/assets/frontend-d41d8cd98f00b204e9800998ecf8427e.css"
             ),
             vendor_js: include_str!(
-                "../frontend/dist/assets/vendor-315855171bdc0bd4fe4df9973f5d2ece.js"
+                "../frontend/dist/assets/vendor-12abafe454d5f3c9655736792567755d.js"
             ),
             vendor_css: include_str!(
                 "../frontend/dist/assets/vendor-d41d8cd98f00b204e9800998ecf8427e.css"
@@ -248,7 +248,7 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
 
     // TODO: stop being so hilariously hard-coded
     create_asset_file(
-        "frontend-0da8276493f72a2ba7d806a3de281626.js",
+        "frontend-c6c060f7a38307646632f4d86abb552b.js",
         &assets_path,
         config.assets.frontend_js,
     )?;
@@ -258,12 +258,12 @@ fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
         config.assets.frontend_css,
     )?;
     create_asset_file(
-        "vendor-315855171bdc0bd4fe4df9973f5d2ece.js",
+        "vendor-12abafe454d5f3c9655736792567755d.js",
         &assets_path,
         config.assets.vendor_js,
     )?;
     create_asset_file(
-        ".vendor-d41d8cd98f00b204e9800998ecf8427e.css",
+        "vendor-d41d8cd98f00b204e9800998ecf8427e.css",
         &assets_path,
         config.assets.vendor_css,
     )?;
