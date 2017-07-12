@@ -13,8 +13,9 @@ details.
 
 ## Pull Requests
 
-To make changes to `rustdoc`, please send in pull requests on GitHub to the `master`
-branch. We'll review them and either merge or request changes.
+To make changes to `rustdoc`, please send in pull requests on GitHub to the
+`master` branch. We'll review them and either merge or request changes. Travis
+CI tests everything as well, so you may get feedback from it too.
 
 If you make additions or other changes to a pull request, feel free to either amend
 previous commits or only add new ones, however you prefer. We may ask you to squash
@@ -24,6 +25,7 @@ One tricky bit with contributing to the frontend, in the `frontend` directory:
 if you make changes here, you'll need to remove the older files from
 `frontend\dist\` and commit the new ones. More detail in the "Frontend
 Development Workflow" section below.
+
 
 ## Issue Tracker
 
