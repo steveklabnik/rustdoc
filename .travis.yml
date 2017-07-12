@@ -1,0 +1,14 @@
+language: rust
+
+rust:
+  # someday, but rls relies on nightly right now.
+  # - stable
+  # - beta
+  - nightly
+
+before_install:
+  - nvm install 8.1.4
+
+script:
+  - cargo test
+  - cd frontend && npm install && npm run test
