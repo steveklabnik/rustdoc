@@ -36,8 +36,9 @@ Here's how it does it:
    it's documenting.
 6. It writes out some HTML/CSS/JS from the frontend `target\doc` too.
 
-Well, this is how it's going to work, anyway: the code isn't exactly super clean at the
-moment. More work to do!
+Well, this is [how it's going to
+work](https://github.com/steveklabnik/rustdoc/issues/11), anyway: the code
+isn't exactly super clean at the moment. More work to do!
 
 ### The frontend
 
