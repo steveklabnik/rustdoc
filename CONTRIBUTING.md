@@ -102,7 +102,8 @@ You'll see some files in `dist\assets` be removed, and new ones added.
 
 To work on the backend, you'll need:
 
-* Rust
+* Rust, specifically, nightly Rust. We hope to move to stable, but cannot just
+  yet, as some dependencies require nightly.
 * Cargo (comes with Rust 99% of the time)
 
 To build the project:
