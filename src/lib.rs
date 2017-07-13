@@ -15,20 +15,15 @@ use std::process::Command;
 pub struct Config {
     manifest_path: PathBuf,
     host: analysis::AnalysisHost,
-    assets: Assets,
+    assets: Vec<Asset>,
 }
 
 /// Static assets compiled into the binary so we get a single executable.
 ///
 /// In the future I expect these to be Cow<'static, str>s to support dynamic assets
-struct Assets {
-    crossdomain_xml: &'static str,
-    index_html: &'static str,
-    robots_txt: &'static str,
-    frontend_js: &'static str,
-    frontend_css: &'static str,
-    vendor_js: &'static str,
-    vendor_css: &'static str,
+struct Asset {
+    name: &'static str,
+    contents: &'static str,
 }
 
 impl Config {
@@ -37,24 +32,42 @@ impl Config {
         let manifest_path = PathBuf::from(matches.value_of("manifest-path").unwrap());
         let host = generate_analysis(&manifest_path)?;
 
-        // TODO: stop being so hilariously hard-coded
-        let assets = Assets {
-            crossdomain_xml: include_str!("../frontend/dist/crossdomain.xml"),
-            index_html: include_str!("../frontend/dist/index.html"),
-            robots_txt: include_str!("../frontend/dist/robots.txt"),
-            frontend_js: include_str!(
+        let assets = vec![Asset {
+            name: "crossdomain.xml",
+            contents: include_str!("../frontend/dist/crossdomain.xml"),
+        },
+        Asset {
+            name: "index.html",
+            contents: include_str!("../frontend/dist/index.html"),
+        },
+        Asset {
+            name: "robots.txt",
+            contents: include_str!("../frontend/dist/robots.txt"),
+        },
+        Asset {
+            name: "assets/frontend-c6c060f7a38307646632f4d86abb552b.js",
+            contents: include_str!(
                 "../frontend/dist/assets/frontend-c6c060f7a38307646632f4d86abb552b.js"
             ),
-            frontend_css: include_str!(
+        },
+        Asset {
+            name: "assets/frontend-d41d8cd98f00b204e9800998ecf8427e.css",
+            contents: include_str!(
                 "../frontend/dist/assets/frontend-d41d8cd98f00b204e9800998ecf8427e.css"
             ),
-            vendor_js: include_str!(
+        },
+        Asset {
+            name: "assets/vendor-12abafe454d5f3c9655736792567755d.js",
+            contents: include_str!(
                 "../frontend/dist/assets/vendor-12abafe454d5f3c9655736792567755d.js"
             ),
-            vendor_css: include_str!(
+        },
+        Asset {
+            name: "assets/vendor-d41d8cd98f00b204e9800998ecf8427e.css",
+            contents: include_str!(
                 "../frontend/dist/assets/vendor-d41d8cd98f00b204e9800998ecf8427e.css"
             ),
-        };
+        }];
 
         Ok(Config {
             manifest_path,
@@ -187,44 +200,17 @@ pub fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
     file.write_all(serialized.as_bytes())?;
 
     // now that we've written out the data, we can write out the rest of it
-    create_asset_file(
-        "crossdomain.xml",
-        &output_path,
-        config.assets.crossdomain_xml,
-    )?;
-    create_asset_file("index.html", &output_path, config.assets.index_html)?;
-    create_asset_file("robots.txt", &output_path, config.assets.robots_txt)?;
-    create_asset_file(
-        "crossdomain.xml",
-        &output_path,
-        config.assets.crossdomain_xml,
-    )?;
-
     let mut assets_path = output_path.clone();
     assets_path.push("assets");
     fs::create_dir_all(&assets_path)?;
 
-    // TODO: stop being so hilariously hard-coded
-    create_asset_file(
-        "frontend-c6c060f7a38307646632f4d86abb552b.js",
-        &assets_path,
-        config.assets.frontend_js,
-    )?;
-    create_asset_file(
-        "frontend-d41d8cd98f00b204e9800998ecf8427e.css",
-        &assets_path,
-        config.assets.frontend_css,
-    )?;
-    create_asset_file(
-        "vendor-12abafe454d5f3c9655736792567755d.js",
-        &assets_path,
-        config.assets.vendor_js,
-    )?;
-    create_asset_file(
-        "vendor-d41d8cd98f00b204e9800998ecf8427e.css",
-        &assets_path,
-        config.assets.vendor_css,
-    )?;
+    for asset in &config.assets {
+        create_asset_file(
+            asset.name,
+            &output_path,
+            asset.contents,
+        )?;
+    }
 
     println!("done.");
 
