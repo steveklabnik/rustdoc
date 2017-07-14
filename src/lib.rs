@@ -15,6 +15,15 @@ pub struct Config {
     manifest_path: PathBuf,
     host: analysis::AnalysisHost,
     assets: Vec<Asset>,
+    build_output: BuildOutput,
+}
+
+/// BuildOutput is used to determine what `rustdoc` should output when building.
+/// Currently it either builds and outputs just JSON or HTML/CSS/JS and JSON
+#[derive(PartialEq, Eq)]
+pub enum BuildOutput {
+    Json,
+    All,
 }
 
 /// Static assets compiled into the binary so we get a single executable.
@@ -26,7 +35,10 @@ struct Asset {
 }
 
 impl Config {
-    pub fn new(manifest_path: PathBuf) -> Result<Config, Box<std::error::Error>> {
+    pub fn new(
+        manifest_path: PathBuf,
+        build_output: BuildOutput,
+    ) -> Result<Config, Box<std::error::Error>> {
         let host = generate_analysis(&manifest_path)?;
 
         let assets = vec![
@@ -72,6 +84,7 @@ impl Config {
             manifest_path,
             host,
             assets,
+            build_output,
         })
     }
 }
@@ -197,15 +210,16 @@ pub fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
     let mut file = File::create(json_path)?;
     file.write_all(serialized.as_bytes())?;
 
-    // now that we've written out the data, we can write out the rest of it
-    let mut assets_path = output_path.clone();
-    assets_path.push("assets");
-    fs::create_dir_all(&assets_path)?;
+    if BuildOutput::All == config.build_output {
+        // now that we've written out the data, we can write out the rest of it
+        let mut assets_path = output_path.clone();
+        assets_path.push("assets");
+        fs::create_dir_all(&assets_path)?;
 
-    for asset in &config.assets {
-        create_asset_file(asset.name, &output_path, asset.contents)?;
+        for asset in &config.assets {
+            create_asset_file(asset.name, &output_path, asset.contents)?;
+        }
     }
-
     println!("done.");
 
     Ok(())
