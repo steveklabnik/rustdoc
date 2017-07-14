@@ -226,11 +226,12 @@ fn generate_analysis(
 ) -> Result<analysis::AnalysisHost, Box<std::error::Error>> {
     let mut command = Command::new("cargo");
 
-    command.arg("build")
-           .arg("--manifest-path")
-           .arg(manifest_path.join("Cargo.toml"))
-           .env("RUSTFLAGS", "-Z save-analysis")
-           .env("CARGO_TARGET_DIR", manifest_path.join("target/rls"));
+    command
+        .arg("build")
+        .arg("--manifest-path")
+        .arg(manifest_path.join("Cargo.toml"))
+        .env("RUSTFLAGS", "-Z save-analysis")
+        .env("CARGO_TARGET_DIR", manifest_path.join("target/rls"));
 
     print!("generating save analysis data...");
     io::stdout().flush()?;
