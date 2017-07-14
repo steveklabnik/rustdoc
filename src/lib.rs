@@ -1,7 +1,6 @@
 extern crate jsonapi;
 extern crate rls_analysis as analysis;
 extern crate serde_json;
-extern crate clap;
 
 use analysis::raw::DefKind;
 
@@ -27,9 +26,8 @@ struct Asset {
 }
 
 impl Config {
-    pub fn new(matches: &clap::ArgMatches) -> Result<Config, Box<std::error::Error>> {
+    pub fn new(manifest_path: PathBuf) -> Result<Config, Box<std::error::Error>> {
         // unwrap is okay because we take a default value
-        let manifest_path = PathBuf::from(matches.value_of("manifest-path").unwrap());
         let host = generate_analysis(&manifest_path)?;
 
         let assets = vec![Asset {

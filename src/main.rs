@@ -6,6 +6,7 @@ use clap::{App, Arg, SubCommand};
 use rustdoc::{Config, build};
 
 use std::process;
+use std::path::PathBuf;
 
 fn main() {
     let version = env!("CARGO_PKG_VERSION");
@@ -26,7 +27,8 @@ fn main() {
         ))
         .get_matches();
 
-    let config = Config::new(&matches).unwrap_or_else(|err| {
+    let manifest_path = PathBuf::from(&matches.value_of("manifest-path").unwrap());
+    let config = Config::new(manifest_path).unwrap_or_else(|err| {
         println!("Problem creating configuration: {}", err);
         process::exit(1);
     });
