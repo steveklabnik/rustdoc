@@ -29,42 +29,44 @@ impl Config {
     pub fn new(manifest_path: PathBuf) -> Result<Config, Box<std::error::Error>> {
         let host = generate_analysis(&manifest_path)?;
 
-        let assets = vec![Asset {
-            name: "crossdomain.xml",
-            contents: include_str!("../frontend/dist/crossdomain.xml"),
-        },
-        Asset {
-            name: "index.html",
-            contents: include_str!("../frontend/dist/index.html"),
-        },
-        Asset {
-            name: "robots.txt",
-            contents: include_str!("../frontend/dist/robots.txt"),
-        },
-        Asset {
-            name: "assets/frontend-c6c060f7a38307646632f4d86abb552b.js",
-            contents: include_str!(
-                "../frontend/dist/assets/frontend-c6c060f7a38307646632f4d86abb552b.js"
-            ),
-        },
-        Asset {
-            name: "assets/frontend-d41d8cd98f00b204e9800998ecf8427e.css",
-            contents: include_str!(
-                "../frontend/dist/assets/frontend-d41d8cd98f00b204e9800998ecf8427e.css"
-            ),
-        },
-        Asset {
-            name: "assets/vendor-12abafe454d5f3c9655736792567755d.js",
-            contents: include_str!(
-                "../frontend/dist/assets/vendor-12abafe454d5f3c9655736792567755d.js"
-            ),
-        },
-        Asset {
-            name: "assets/vendor-d41d8cd98f00b204e9800998ecf8427e.css",
-            contents: include_str!(
-                "../frontend/dist/assets/vendor-d41d8cd98f00b204e9800998ecf8427e.css"
-            ),
-        }];
+        let assets = vec![
+            Asset {
+                name: "crossdomain.xml",
+                contents: include_str!("../frontend/dist/crossdomain.xml"),
+            },
+            Asset {
+                name: "index.html",
+                contents: include_str!("../frontend/dist/index.html"),
+            },
+            Asset {
+                name: "robots.txt",
+                contents: include_str!("../frontend/dist/robots.txt"),
+            },
+            Asset {
+                name: "assets/frontend-c6c060f7a38307646632f4d86abb552b.js",
+                contents: include_str!(
+                    "../frontend/dist/assets/frontend-c6c060f7a38307646632f4d86abb552b.js"
+                ),
+            },
+            Asset {
+                name: "assets/frontend-d41d8cd98f00b204e9800998ecf8427e.css",
+                contents: include_str!(
+                    "../frontend/dist/assets/frontend-d41d8cd98f00b204e9800998ecf8427e.css"
+                ),
+            },
+            Asset {
+                name: "assets/vendor-12abafe454d5f3c9655736792567755d.js",
+                contents: include_str!(
+                    "../frontend/dist/assets/vendor-12abafe454d5f3c9655736792567755d.js"
+                ),
+            },
+            Asset {
+                name: "assets/vendor-d41d8cd98f00b204e9800998ecf8427e.css",
+                contents: include_str!(
+                    "../frontend/dist/assets/vendor-d41d8cd98f00b204e9800998ecf8427e.css"
+                ),
+            },
+        ];
 
         Ok(Config {
             manifest_path,
@@ -201,11 +203,7 @@ pub fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
     fs::create_dir_all(&assets_path)?;
 
     for asset in &config.assets {
-        create_asset_file(
-            asset.name,
-            &output_path,
-            asset.contents,
-        )?;
+        create_asset_file(asset.name, &output_path, asset.contents)?;
     }
 
     println!("done.");
@@ -228,11 +226,12 @@ fn generate_analysis(
 ) -> Result<analysis::AnalysisHost, Box<std::error::Error>> {
     let mut command = Command::new("cargo");
 
-    command.arg("build")
-           .arg("--manifest-path")
-           .arg(manifest_path.join("Cargo.toml"))
-           .env("RUSTFLAGS", "-Z save-analysis")
-           .env("CARGO_TARGET_DIR", manifest_path.join("target/rls"));
+    command
+        .arg("build")
+        .arg("--manifest-path")
+        .arg(manifest_path.join("Cargo.toml"))
+        .env("RUSTFLAGS", "-Z save-analysis")
+        .env("CARGO_TARGET_DIR", manifest_path.join("target/rls"));
 
     print!("generating save analysis data...");
     io::stdout().flush()?;
