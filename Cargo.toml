@@ -4,6 +4,10 @@ version = "0.1.0"
 authors = ["steveklabnik <steve@steveklabnik.com>"]
 license = "MIT/Apache-2.0"
 
+[[bin]]
+name = "rustdoc"
+doc = false
+
 [dependencies]
 rls-analysis = "0.4.0"
 clap = "2.24.2"
