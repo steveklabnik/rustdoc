@@ -27,7 +27,6 @@ struct Asset {
 
 impl Config {
     pub fn new(manifest_path: PathBuf) -> Result<Config, Box<std::error::Error>> {
-        // unwrap is okay because we take a default value
         let host = generate_analysis(&manifest_path)?;
 
         let assets = vec![Asset {

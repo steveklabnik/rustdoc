@@ -27,6 +27,7 @@ fn main() {
         ))
         .get_matches();
 
+    // unwrap is okay because we take a default value
     let manifest_path = PathBuf::from(&matches.value_of("manifest-path").unwrap());
     let config = Config::new(manifest_path).unwrap_or_else(|err| {
         println!("Problem creating configuration: {}", err);
