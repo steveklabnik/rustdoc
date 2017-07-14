@@ -123,8 +123,7 @@ pub fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
         }
     }
 
-    // TODO: use real fs handling here
-    let output_path = PathBuf::from(format!("{}/target/doc", config.manifest_path.display()));
+    let output_path = config.manifest_path.join("target/doc");
     fs::create_dir_all(&output_path)?;
 
     let mut json_path = output_path.clone();
@@ -232,16 +231,11 @@ fn generate_analysis(
 ) -> Result<analysis::AnalysisHost, Box<std::error::Error>> {
     let mut command = Command::new("cargo");
 
-    let manifest_path = manifest_path.to_str().unwrap();
-
-    command.arg("build");
-    // TODO build an actual path
-    command.args(
-        &["--manifest-path", &format!("{}/Cargo.toml", manifest_path)],
-    );
-    command.env("RUSTFLAGS", "-Z save-analysis");
-    // TODO build an actual path
-    command.env("CARGO_TARGET_DIR", &format!("{}/target/rls", manifest_path));
+    command.arg("build")
+           .arg("--manifest-path")
+           .arg(manifest_path.join("Cargo.toml"))
+           .env("RUSTFLAGS", "-Z save-analysis")
+           .env("CARGO_TARGET_DIR", manifest_path.join("target/rls"));
 
     print!("generating save analysis data...");
     io::stdout().flush()?;
@@ -263,11 +257,7 @@ fn generate_analysis(
     print!("loading save analysis data...");
     io::stdout().flush()?;
     let host = analysis::AnalysisHost::new(analysis::Target::Debug);
-    host.reload(
-        &PathBuf::from(manifest_path),
-        &PathBuf::from(manifest_path),
-        true,
-    )?;
+    host.reload(manifest_path, manifest_path, true)?;
     println!("done.");
 
     Ok(host)
