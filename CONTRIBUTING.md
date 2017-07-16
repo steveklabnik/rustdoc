@@ -3,12 +3,12 @@
 Thank you for your interest in making `rustdoc` better! We'd love to have your
 contribution. We expect all contributors to abide by the [Rust code of
 conduct](https://www.rust-lang.org/en-US/conduct.html), which you can find at
-that link or in the CODE_OF_CONDUCT.md file in this repository.
+that link or in the [`CODE_OF_CONDUCT.md`](https://github.com/steveklabnik/rustdoc/blob/master/CODE_OF_CONDUCT.md) file in this repository.
 
 ## License
 
 `rustdoc` is dual licenced under the MIT and Apache 2.0 licenses, and so are all
-contributions. Please see the `LICENSE-*` files in this directory for more
+contributions. Please see the [`LICENSE-MIT`](https://github.com/steveklabnik/rustdoc/blob/master/LICENSE-MIT) and [`LICENSE-APACHE`](https://github.com/steveklabnik/rustdoc/blob/master/LICENSE-APACHE) files in this directory for more
 details.
 
 ## Pull Requests
@@ -103,7 +103,7 @@ You'll see some files in `dist\assets` be removed, and new ones added.
 To work on the backend, you'll need:
 
 * Rust, specifically, nightly Rust. We hope to move to stable, but cannot just
-  yet, as some dependencies require nightly.
+  yet, as some dependencies require [nightly](https://github.com/rust-lang-nursery/rustup.rs/blob/master/README.md#working-with-nightly-rust).
 * Cargo (comes with Rust 99% of the time)
 
 To build the project:
