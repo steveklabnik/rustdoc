@@ -3,12 +3,12 @@
 Thank you for your interest in making `rustdoc` better! We'd love to have your
 contribution. We expect all contributors to abide by the [Rust code of
 conduct](https://www.rust-lang.org/en-US/conduct.html), which you can find at
-that link or in the CODE_OF_CONDUCT.md file in this repository.
+that link or in the [`CODE_OF_CONDUCT.md`](https://github.com/steveklabnik/rustdoc/blob/master/CODE_OF_CONDUCT.md) file in this repository.
 
 ## License
 
 `rustdoc` is dual licenced under the MIT and Apache 2.0 licenses, and so are all
-contributions. Please see the `LICENSE-*` files in this directory for more
+contributions. Please see the [`LICENSE-MIT`](https://github.com/steveklabnik/rustdoc/blob/master/LICENSE-MIT) and [`LICENSE-APACHE`](https://github.com/steveklabnik/rustdoc/blob/master/LICENSE-APACHE) files in this directory for more
 details.
 
 ## Pull Requests
