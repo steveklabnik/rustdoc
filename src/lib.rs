@@ -7,10 +7,34 @@ use analysis::raw::DefKind;
 
 use std::collections::{BTreeMap, HashMap};
 use std::fs::{self, File};
+use std::fmt;
 use std::io;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
+#[derive(Debug)]
+pub struct CrateErr {
+    error: String,
+}
+
+impl CrateErr {
+    pub fn new(crate_name: &str) -> CrateErr {
+        CrateErr { error: format!("Crate not found: \"{}\"", crate_name) }
+    }
+}
+
+impl fmt::Display for CrateErr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", &self.error)
+    }
+}
+
+impl std::error::Error for CrateErr {
+    fn description(&self) -> &str {
+        &self.error
+    }
+}
 
 pub struct Config {
     manifest_path: PathBuf,
@@ -90,10 +114,12 @@ pub fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
     "compiler_builtins"
     */
 
-    let &(id, _) = roots
-        .iter()
-        .find(|&&(_, ref name)| name == "example")
-        .unwrap();
+    // FIXME: this whole code shouldn't look for a precise crate.
+    let id = roots.iter().find(|&&(_, ref name)| name == "example");
+    let id = match id {
+        Some(&(id, _)) => id,
+        _ => return Err(Box::new(CrateErr::new("example"))),
+    };
 
     let root_def = config.host.get_def(id)?;
 
