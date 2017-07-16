@@ -66,4 +66,4 @@ there's a lot to do. Here's a quick overview:
 3. Check out the [issue tracker](https://github.com/steveklabnik/rustdoc) to follow the
    development of `rustdoc`.
 
-For more details, see the `CONTRIBUTING.md` file.
+For more details, see the [`CONTRIBUTING.md`](https://github.com/steveklabnik/rustdoc/blob/master/CONTRIBUTING.md) file.
