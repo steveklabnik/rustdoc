@@ -2,8 +2,6 @@ extern crate jsonapi;
 extern crate rls_analysis as analysis;
 extern crate serde_json;
 
-use analysis::raw::DefKind;
-
 use std::collections::{BTreeMap, HashMap};
 use std::fs::{self, File};
 use std::fmt;
@@ -11,6 +9,9 @@ use std::io;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
+use analysis::raw::DefKind;
+use jsonapi::api::JsonApiDocument;
 
 #[derive(Debug)]
 pub struct CrateErr {
@@ -100,11 +101,9 @@ impl Config {
     }
 }
 
-pub fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
-    generate_analysis(config)?;
 
-    print!("generating JSON...");
-    io::stdout().flush()?;
+pub fn generate_json(config: &Config) -> Result<JsonApiDocument, Box<std::error::Error>> {
+    generate_analysis(config)?;
 
     let roots = config.host.def_roots()?;
 
@@ -149,12 +148,6 @@ pub fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
             data.get_mut(&key).unwrap().push(def.clone());
         }
     }
-
-    let output_path = config.manifest_path.join("target/doc");
-    fs::create_dir_all(&output_path)?;
-
-    let mut json_path = output_path.clone();
-    json_path.push("data.json");
 
     use jsonapi::api::*;
 
@@ -220,21 +213,45 @@ pub fn build(config: &Config) -> Result<(), Box<std::error::Error>> {
 
     document.data = Some(PrimaryData::Single(Box::new(krate)));
 
-    let serialized = serde_json::to_string(&document)?;
+    Ok(document)
+}
 
-    let mut file = File::create(json_path)?;
-    file.write_all(serialized.as_bytes())?;
+pub fn build(config: &Config, artifacts: &[&str]) -> Result<(), Box<std::error::Error>> {
+    let output_path = config.manifest_path.join("target/doc");
+    fs::create_dir_all(&output_path)?;
 
-    // now that we've written out the data, we can write out the rest of it
-    let mut assets_path = output_path.clone();
-    assets_path.push("assets");
-    fs::create_dir_all(&assets_path)?;
+    let mut stdout = io::stdout();
 
-    for asset in &config.assets {
-        create_asset_file(asset.name, &output_path, asset.contents)?;
+    if artifacts.contains(&"json") {
+        print!("generating JSON...");
+        stdout.flush()?;
+
+        let document = generate_json(&config)?;
+        let serialized = serde_json::to_string(&document)?;
+
+        let mut json_path = output_path.clone();
+        json_path.push("data.json");
+
+        let mut file = File::create(json_path)?;
+        file.write_all(serialized.as_bytes())?;
+        println!("done.");
     }
 
-    println!("done.");
+    // now that we've written out the data, we can write out the rest of it
+    if artifacts.contains(&"assets") {
+        print!("copying assets...");
+        stdout.flush()?;
+
+        let mut assets_path = output_path.clone();
+        assets_path.push("assets");
+        fs::create_dir_all(&assets_path)?;
+
+        for asset in &config.assets {
+            create_asset_file(asset.name, &output_path, asset.contents)?;
+        }
+
+        println!("done.");
+    }
 
     Ok(())
 }
@@ -260,8 +277,10 @@ fn generate_analysis(config: &Config) -> Result<(), Box<std::error::Error>> {
         .env("RUSTFLAGS", "-Z save-analysis")
         .env("CARGO_TARGET_DIR", manifest_path.join("target/rls"));
 
+    let mut stdout = io::stdout();
+
     print!("generating save analysis data...");
-    io::stdout().flush()?;
+    stdout.flush()?;
 
     let output = command.output()?;
 
@@ -278,7 +297,7 @@ fn generate_analysis(config: &Config) -> Result<(), Box<std::error::Error>> {
     println!("done.");
 
     print!("loading save analysis data...");
-    io::stdout().flush()?;
+    stdout.flush()?;
     config.host.reload(manifest_path, manifest_path, true)?;
     println!("done.");
 
