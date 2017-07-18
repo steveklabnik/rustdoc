@@ -226,7 +226,6 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<(), Box<std::error::
         let document = generate_json(&config)?;
         let serialized = serde_json::to_string(&document)?;
 
-
         let mut json_path = output_path.clone();
         json_path.push("data.json");
 
