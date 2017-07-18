@@ -52,7 +52,7 @@ struct Asset {
 
 impl Config {
     pub fn new(manifest_path: PathBuf) -> Result<Config, Box<std::error::Error>> {
-        let host = generate_analysis(&manifest_path)?;
+        let host = analysis::AnalysisHost::new(analysis::Target::Debug);
 
         let assets = vec![
             Asset {
@@ -101,7 +101,13 @@ impl Config {
     }
 }
 
-fn generate_json(config: &Config) -> Result<JsonApiDocument, Box<std::error::Error>> {
+
+pub fn generate_json(config: &Config) -> Result<JsonApiDocument, Box<std::error::Error>> {
+    generate_analysis(config)?;
+
+    print!("generating JSON...");
+    io::stdout().flush()?;
+
     let roots = config.host.def_roots()?;
 
     // the list of built-in crates. not sure if we want to whitelist these or something?
@@ -263,10 +269,9 @@ fn create_asset_file(name: &str, path: &Path, data: &str) -> Result<(), Box<std:
     Ok(())
 }
 
-fn generate_analysis(
-    manifest_path: &Path,
-) -> Result<analysis::AnalysisHost, Box<std::error::Error>> {
+fn generate_analysis(config: &Config) -> Result<(), Box<std::error::Error>> {
     let mut command = Command::new("cargo");
+    let manifest_path = &config.manifest_path;
 
     command
         .arg("build")
@@ -296,9 +301,8 @@ fn generate_analysis(
 
     print!("loading save analysis data...");
     stdout.flush()?;
-    let host = analysis::AnalysisHost::new(analysis::Target::Debug);
-    host.reload(manifest_path, manifest_path, true)?;
+    config.host.reload(manifest_path, manifest_path, true)?;
     println!("done.");
 
-    Ok(host)
+    Ok(())
 }
