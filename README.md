@@ -29,16 +29,15 @@ Here's how it does it:
    `target\rls`.
 2. It reads those save analysis files with the `rls-analysis` crate. As you may be able
    to guess from the name, this is pretty much why it exists!
-3. It goes through the processed information and generates a sort of "docs AST"; starting
-   at the root of your crate and branching from there.
-4. It converts this "docs AST" to JSON, more specifically, [JSON API](https://jsonapi.org).
+3. It goes through the processed information and turns it into a `DocData` struct that
+   contains the top-level crate information, and the relevant information for everything
+   in the crate.
+4. It converts this `DocData` to JSON, more specifically, [JSON API](https://jsonapi.org).
 5. It writes out this JSON to the `target\doc` directory of the crate that
    it's documenting.
 6. It writes out some HTML/CSS/JS from the frontend `target\doc` too.
 
-Well, this is [how it's going to
-work](https://github.com/steveklabnik/rustdoc/issues/11), anyway: the code
-isn't exactly super clean at the moment. More work to do!
+You can also request it to only write out some of this information through the `--emit` flag.
 
 ### The frontend
 
