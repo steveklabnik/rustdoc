@@ -21,6 +21,12 @@ If you make additions or other changes to a pull request, feel free to either am
 previous commits or only add new ones, however you prefer. We may ask you to squash
 your commits before merging, depending.
 
+One tricky bit with contributing to the frontend, in the `frontend` directory:
+if you make changes here, you'll need to remove the older files from
+`frontend\dist\` and commit the new ones. More detail in the "Frontend
+Development Workflow" section below.
+
+
 ## Issue Tracker
 
 You can find the issue tracker [on
