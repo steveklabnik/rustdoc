@@ -13,6 +13,7 @@ static ALL_ARTIFACTS: &[&str] = &["assets", "json"];
 fn main() {
     let version = env!("CARGO_PKG_VERSION");
 
+    let joined_artifacts = ALL_ARTIFACTS.join(",");
     let matches = App::new("rustdoc")
         .version(version)
         .author("Steve Klabnik <steve@steveklabnik.com>")
@@ -33,7 +34,7 @@ fn main() {
                         .use_delimiter(true)
                         .takes_value(true)
                         .possible_values(ALL_ARTIFACTS)
-                        .default_value("assets,json")
+                        .default_value(&joined_artifacts)
                         .help("Build artifacts to produce. Defaults to everything."),
                 ),
         )
