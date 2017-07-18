@@ -74,7 +74,7 @@ about the backend at all to work on the front end; think of it as test data. To
 get started:
 
 ```bash
-> ember serve
+> npm start
 ```
 
 This will open up a copy of the site on [http://localhost:4200/](http://localhost:4200/).
@@ -93,7 +93,7 @@ this, to remove them:
 And then do this, to regenerate them:
 
 ```bash
-> ember build -prod
+> npm run prod
 ```
 
 You'll see some files in `dist\assets` be removed, and new ones added.
