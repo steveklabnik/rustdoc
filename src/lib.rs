@@ -105,9 +105,6 @@ impl Config {
 pub fn generate_json(config: &Config) -> Result<JsonApiDocument, Box<std::error::Error>> {
     generate_analysis(config)?;
 
-    print!("generating JSON...");
-    io::stdout().flush()?;
-
     let roots = config.host.def_roots()?;
 
     // the list of built-in crates. not sure if we want to whitelist these or something?
