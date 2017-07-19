@@ -1,11 +1,23 @@
+#![recursion_limit = "1024"]
 #[macro_use]
 extern crate lazy_static;
+#[macro_use]
+extern crate error_chain;
 extern crate walkdir;
+
 use walkdir::{WalkDir, WalkDirIterator, DirEntry};
 use std::fmt;
 use std::fs::File;
 use std::ffi::OsStr;
-use std::io::{Write, BufWriter};
+use std::io::{Write, BufWriter, stderr};
+use std::process::exit;
+
+error_chain! {
+    foreign_links {
+        Io(::std::io::Error);
+        WalkDir(::walkdir::Error);
+    }
+}
 
 // Location of the dist folder
 const DIST: &str = "frontend/dist/";
@@ -24,18 +36,35 @@ lazy_static! {
 
 /// Find the assets and write out the corresponding files
 pub fn main() {
-    write_asset_file(acquire_assets());
+    if let Err(ref e) = write_asset_file() {
+        let stderr = &mut stderr();
+        let errmsg = "Error writing to stderr";
+
+        writeln!(stderr, "Error: {}", e).expect(errmsg);
+
+        for e in e.iter().skip(1) {
+            writeln!(stderr, "Caused by: {}", e).expect(errmsg);
+        }
+
+        // The backtrace is not always generated. Try to run this example
+        // with `RUST_BACKTRACE=1`.
+        if let Some(backtrace) = e.backtrace() {
+            writeln!(stderr, "Backtrace: {:?}", backtrace).expect(errmsg);
+        }
+
+        exit(1);
+    }
 }
 
 /// Start the recursion from the top level of the frontend's dist folder
-fn acquire_assets() -> Vec<Asset> {
+fn acquire_assets() -> Result<Vec<Asset>> {
     let mut output: Vec<Asset> = Vec::new();
 
     let filter_entries = |e: &DirEntry| !IGNORE.contains(&e.file_name());
 
     for entry in WalkDir::new(DIST).into_iter().filter_entry(filter_entries) {
-        let entry = entry.expect("Unable to read directory entry");
-        if entry.metadata().expect("Couldn't get metadata").is_file() {
+        let entry = entry?;
+        if entry.metadata()?.is_file() {
             output.push(Asset {
                 // If the directory isn't valid this wouldn't have worked.
                 path: String::from(entry.path().to_str().unwrap()).replace("\\", "/"),
@@ -43,18 +72,21 @@ fn acquire_assets() -> Vec<Asset> {
         }
     }
 
-    output
+    Ok(output)
 }
 
 /// Write to asset.in which is a vec expression of static assets that will be
 /// imported using the include!() macro for the `Config` struct
-fn write_asset_file(assets: Vec<Asset>) {
-    let mut writer = BufWriter::new(File::create(ASSETOUT).expect("Unable to create file"));
-    writer.write_all(b"vec![").unwrap();
+fn write_asset_file() -> Result<()> {
+    let assets = acquire_assets()?;
+    let mut writer = BufWriter::new(File::create(ASSETOUT)?);
+    writer.write_all(b"vec![")?;
     for i in assets {
-        writer.write_fmt(format_args!("{},", i)).unwrap();
+        writer.write_fmt(format_args!("{},", i))?;
     }
-    writer.write_all(b"]\n").unwrap();
+    writer.write_all(b"]\n")?;
+
+    Ok(())
 }
 
 /// Intermediary data structure used to hold the path of the file

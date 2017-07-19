@@ -5,6 +5,7 @@ use clap::{App, Arg, SubCommand};
 
 use rustdoc::{Config, build};
 
+use std::io::{Write, stderr};
 use std::process;
 use std::path::PathBuf;
 
@@ -56,8 +57,21 @@ fn main() {
         _ => build(&config, ALL_ARTIFACTS),
     };
 
-    if let Err(e) = result {
-        println!("Application error: {}", e);
+    if let Err(ref e) = result {
+        let stderr = &mut stderr();
+        let errmsg = "Error writing to stderr";
+
+        writeln!(stderr, "Error: {}", e).expect(errmsg);
+
+        for e in e.iter().skip(1) {
+            writeln!(stderr, "Caused by: {}", e).expect(errmsg);
+        }
+
+        // The backtrace is not always generated. Try to run this example
+        // with `RUST_BACKTRACE=1`.
+        if let Some(backtrace) = e.backtrace() {
+            writeln!(stderr, "Backtrace: {:?}", backtrace).expect(errmsg);
+        }
 
         process::exit(1);
     }
