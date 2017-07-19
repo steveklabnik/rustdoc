@@ -77,8 +77,8 @@ pub fn generate_json(config: &Config) -> Result<JsonApiDocument, Box<std::error:
     "compiler_builtins"
     */
 
-    // FIXME: this whole code shouldn't look for a precise crate.
-    let id = roots.iter().find(|&&(_, ref name)| name == "example");
+    let package = package_name_from_manifest_path(&config.manifest_path)?;
+    let id = roots.iter().find(|&&(_, ref name)| name == &package);
     let id = match id {
         Some(&(id, _)) => id,
         _ => return Err(Box::new(CrateErr::new("example"))),
@@ -217,6 +217,39 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<(), Box<std::error::
     }
 
     Ok(())
+}
+
+fn package_name_from_manifest_path(manifest_path: &Path) -> Result<String, Box<std::error::Error>> {
+    let mut command = Command::new("cargo");
+
+    command
+        .arg("metadata")
+        .arg("--manifest-path")
+        .arg(manifest_path.join("Cargo.toml"))
+        .arg("--no-deps")
+        .arg("--format-version")
+        .arg("1");
+
+    let output = command.output()?;
+
+    if !output.status.success() {
+        return Err(
+            format!(
+                "Cargo failed with status {}. stderr:\n{}",
+                output.status,
+                String::from_utf8_lossy(&output.stderr)
+            ).into(),
+        );
+    }
+
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+
+    match json["packages"][0]["name"] {
+        serde_json::Value::String(ref name) => Ok(name.clone()),
+        _ => Err(
+            format!("Unexpected json response from cargo metadata").into(),
+        ),
+    }
 }
 
 fn create_asset_file(name: &str, path: &Path, data: &str) -> Result<(), Box<std::error::Error>> {
