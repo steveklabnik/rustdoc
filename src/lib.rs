@@ -267,7 +267,7 @@ fn generate_analysis(config: &Config) -> Result<(), Box<std::error::Error>> {
     let manifest_path = &config.manifest_path;
 
     command
-        .arg("build")
+        .arg("check")
         .arg("--manifest-path")
         .arg(manifest_path.join("Cargo.toml"))
         .env("RUSTFLAGS", "-Z save-analysis")
