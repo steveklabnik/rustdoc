@@ -13,9 +13,12 @@
             "isBuildCommand": true
         },
         {
-            "taskName": "cargo run",
+            "taskName": "run",
             "args": [
-                "run"
+                "run",
+                "--",
+                "--manifest-path=example",
+                "build"
             ]
         },
         {
