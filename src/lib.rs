@@ -1,10 +1,14 @@
 extern crate jsonapi;
 extern crate rls_analysis as analysis;
 extern crate serde_json;
+#[macro_use]
+extern crate error_chain;
+
+pub mod error;
+use error::*;
 
 use std::collections::{BTreeMap, HashMap};
 use std::fs::{self, File};
-use std::fmt;
 use std::io;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
@@ -13,28 +17,6 @@ use std::process::Command;
 use analysis::raw::DefKind;
 use jsonapi::api::JsonApiDocument;
 
-#[derive(Debug)]
-pub struct CrateErr {
-    error: String,
-}
-
-impl CrateErr {
-    pub fn new(crate_name: &str) -> CrateErr {
-        CrateErr { error: format!("Crate not found: \"{}\"", crate_name) }
-    }
-}
-
-impl fmt::Display for CrateErr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", &self.error)
-    }
-}
-
-impl std::error::Error for CrateErr {
-    fn description(&self) -> &str {
-        &self.error
-    }
-}
 
 pub struct Config {
     manifest_path: PathBuf,
@@ -51,7 +33,7 @@ struct Asset {
 }
 
 impl Config {
-    pub fn new(manifest_path: PathBuf) -> Result<Config, Box<std::error::Error>> {
+    pub fn new(manifest_path: PathBuf) -> Result<Config> {
         let host = analysis::AnalysisHost::new(analysis::Target::Debug);
 
         let assets = include!("asset.in");
@@ -65,7 +47,7 @@ impl Config {
 }
 
 
-pub fn generate_json(config: &Config) -> Result<JsonApiDocument, Box<std::error::Error>> {
+pub fn generate_json(config: &Config) -> Result<JsonApiDocument> {
     generate_analysis(config)?;
 
     let roots = config.host.def_roots()?;
@@ -81,7 +63,7 @@ pub fn generate_json(config: &Config) -> Result<JsonApiDocument, Box<std::error:
     let id = roots.iter().find(|&&(_, ref name)| name == &package);
     let id = match id {
         Some(&(id, _)) => id,
-        _ => return Err(Box::new(CrateErr::new("example"))),
+        _ => return Err(ErrorKind::CrateErr("example").into()),
     };
 
     let root_def = config.host.get_def(id)?;
@@ -179,7 +161,7 @@ pub fn generate_json(config: &Config) -> Result<JsonApiDocument, Box<std::error:
     Ok(document)
 }
 
-pub fn build(config: &Config, artifacts: &[&str]) -> Result<(), Box<std::error::Error>> {
+pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
     let output_path = config.manifest_path.join("target/doc");
     fs::create_dir_all(&output_path)?;
 
@@ -219,7 +201,7 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<(), Box<std::error::
     Ok(())
 }
 
-fn package_name_from_manifest_path(manifest_path: &Path) -> Result<String, Box<std::error::Error>> {
+fn package_name_from_manifest_path(manifest_path: &Path) -> Result<String> {
     let mut command = Command::new("cargo");
 
     command
@@ -234,10 +216,9 @@ fn package_name_from_manifest_path(manifest_path: &Path) -> Result<String, Box<s
 
     if !output.status.success() {
         return Err(
-            format!(
-                "Cargo failed with status {}. stderr:\n{}",
+            ErrorKind::Cargo(
                 output.status,
-                String::from_utf8_lossy(&output.stderr)
+                String::from_utf8_lossy(&output.stderr).into_owned(),
             ).into(),
         );
     }
@@ -246,13 +227,11 @@ fn package_name_from_manifest_path(manifest_path: &Path) -> Result<String, Box<s
 
     match json["packages"][0]["name"] {
         serde_json::Value::String(ref name) => Ok(name.clone()),
-        _ => Err(
-            format!("Unexpected json response from cargo metadata").into(),
-        ),
+        _ => Err(ErrorKind::Json("cargo metadata").into()),
     }
 }
 
-fn create_asset_file(name: &str, path: &Path, data: &str) -> Result<(), Box<std::error::Error>> {
+fn create_asset_file(name: &str, path: &Path, data: &str) -> Result<()> {
     let mut asset_path = path.to_path_buf();
     asset_path.push(name);
 
@@ -262,7 +241,7 @@ fn create_asset_file(name: &str, path: &Path, data: &str) -> Result<(), Box<std:
     Ok(())
 }
 
-fn generate_analysis(config: &Config) -> Result<(), Box<std::error::Error>> {
+fn generate_analysis(config: &Config) -> Result<()> {
     let mut command = Command::new("cargo");
     let manifest_path = &config.manifest_path;
 
@@ -283,10 +262,9 @@ fn generate_analysis(config: &Config) -> Result<(), Box<std::error::Error>> {
     if !output.status.success() {
         println!("");
         return Err(
-            format!(
-                "Cargo failed with status {}. stderr:\n{}",
+            ErrorKind::Cargo(
                 output.status,
-                String::from_utf8_lossy(&output.stderr)
+                String::from_utf8_lossy(&output.stderr).into_owned(),
             ).into(),
         );
     }
