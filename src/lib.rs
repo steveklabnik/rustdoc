@@ -59,8 +59,8 @@ pub fn generate_json(config: &Config) -> Result<JsonApiDocument> {
     "compiler_builtins"
     */
 
-    // FIXME: this whole code shouldn't look for a precise crate.
-    let id = roots.iter().find(|&&(_, ref name)| name == "example");
+    let package = package_name_from_manifest_path(&config.manifest_path)?;
+    let id = roots.iter().find(|&&(_, ref name)| name == &package);
     let id = match id {
         Some(&(id, _)) => id,
         _ => return Err(ErrorKind::CrateErr("example").into()),
@@ -201,6 +201,36 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
     Ok(())
 }
 
+fn package_name_from_manifest_path(manifest_path: &Path) -> Result<String> {
+    let mut command = Command::new("cargo");
+
+    command
+        .arg("metadata")
+        .arg("--manifest-path")
+        .arg(manifest_path.join("Cargo.toml"))
+        .arg("--no-deps")
+        .arg("--format-version")
+        .arg("1");
+
+    let output = command.output()?;
+
+    if !output.status.success() {
+        return Err(
+            ErrorKind::Cargo(
+                output.status,
+                String::from_utf8_lossy(&output.stderr).into_owned(),
+            ).into(),
+        );
+    }
+
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+
+    match json["packages"][0]["name"] {
+        serde_json::Value::String(ref name) => Ok(name.clone()),
+        _ => Err(ErrorKind::Json("cargo metadata").into()),
+    }
+}
+
 fn create_asset_file(name: &str, path: &Path, data: &str) -> Result<()> {
     let mut asset_path = path.to_path_buf();
     asset_path.push(name);
@@ -232,10 +262,9 @@ fn generate_analysis(config: &Config) -> Result<()> {
     if !output.status.success() {
         println!("");
         return Err(
-            format!(
-                "Cargo failed with status {}. stderr:\n{}",
+            ErrorKind::Cargo(
                 output.status,
-                String::from_utf8_lossy(&output.stderr)
+                String::from_utf8_lossy(&output.stderr).into_owned(),
             ).into(),
         );
     }
