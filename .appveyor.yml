@@ -12,3 +12,9 @@ test_script:
   - cargo build
  # see https://github.com/steveklabnik/rustdoc/issues/22
  #- cargo test
+ 
+# https://twitter.com/RustStatus/status/887694846890307584
+# https://twitter.com/RustStatus/status/887703618115297280
+environment:
+  RUSTUP_USE_HYPER: 1
+  CARGO_HTTP_CHECK_REVOKE: false
