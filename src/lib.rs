@@ -175,8 +175,8 @@ impl DocData {
     fn new(config: &Config) -> Result<DocData> {
         let roots = config.host.def_roots()?;
 
-        let package = package_name_from_manifest_path(&config.manifest_path)?; 
-        let id = roots.iter().find(|&&(_, ref name)| name == &package); 
+        let package = package_name_from_manifest_path(&config.manifest_path)?;
+        let id = roots.iter().find(|&&(_, ref name)| name == &package);
         let root_id = match id {
             Some(&(id, _)) => id,
             _ => return Err(ErrorKind::CrateErr("example").into()),
