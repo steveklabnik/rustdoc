@@ -236,7 +236,7 @@ impl DocData {
         Ok(DocData { krate })
     }
 
-    fn to_json(&self) -> Result<String> {
+    pub fn to_json(&self) -> Result<String> {
         use jsonapi::api::*;
 
         let mut document = JsonApiDocument::default();
