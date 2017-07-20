@@ -14,6 +14,7 @@ clap = "2.24.2"
 jsonapi = "0.5.2"
 serde_json = "0.9.10"
 error-chain = "0.10.0"
+indicatif = "0.6.0"
 
 [build-dependencies]
 lazy_static = "0.2.8"
