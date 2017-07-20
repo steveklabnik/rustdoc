@@ -7,7 +7,7 @@ extern crate error_chain;
 pub mod error;
 use error::*;
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io;
 use std::io::prelude::*;
@@ -15,7 +15,6 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use analysis::raw::DefKind;
-use jsonapi::api::JsonApiDocument;
 
 
 pub struct Config {
@@ -46,122 +45,11 @@ impl Config {
     }
 }
 
-
-pub fn generate_json(config: &Config) -> Result<JsonApiDocument> {
+pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
     generate_analysis(config)?;
 
-    let roots = config.host.def_roots()?;
+    let data = DocData::new(config)?;
 
-    // the list of built-in crates. not sure if we want to whitelist these or something?
-    /*
-    "rand", "collections", "std", "panic_unwind", "std_unicode",
-    "alloc_system", "unwind", "core", "libc", "alloc", "panic_abort",
-    "compiler_builtins"
-    */
-
-    let package = package_name_from_manifest_path(&config.manifest_path)?;
-    let id = roots.iter().find(|&&(_, ref name)| name == &package);
-    let id = match id {
-        Some(&(id, _)) => id,
-        _ => return Err(ErrorKind::CrateErr("example").into()),
-    };
-
-    let root_def = config.host.get_def(id)?;
-
-    let defs = config.host.for_each_child_def(id, |_, def| def.clone())?;
-
-    let kinds = vec![
-        DefKind::Mod,
-        DefKind::Static,
-        DefKind::Const,
-        DefKind::Enum,
-        DefKind::Struct,
-        DefKind::Union,
-        DefKind::Trait,
-        DefKind::Function,
-        DefKind::Macro,
-    ];
-
-    let mut data = BTreeMap::new();
-
-    for kind in kinds {
-        let key = format!("{:?}", kind);
-        data.insert(key.clone(), Vec::new());
-
-        for def in defs.iter().filter(|def| def.kind == kind) {
-            // unwrap is okay here because we have filtered for the kind we inserted above
-            data.get_mut(&key).unwrap().push(def.clone());
-        }
-    }
-
-    use jsonapi::api::*;
-
-    let mut document = JsonApiDocument::default();
-
-    let mut map = HashMap::new();
-    map.insert(
-        String::from("docs"),
-        serde_json::Value::String(root_def.docs.clone()),
-    );
-
-    let mut relationships = HashMap::new();
-
-    let mut relationship = Relationship {
-        data: IdentifierData::Multiple(Vec::new()),
-        links: None,
-    };
-
-    //TODO this is bad, use real option handling in the loop
-    document.included = Some(Vec::new());
-
-    for def in &data["Mod"] {
-        if let IdentifierData::Multiple(ref mut v) = relationship.data {
-            v.push(ResourceIdentifier {
-                _type: String::from("module"),
-                id: def.qualname.clone(),
-            });
-        };
-        let mut map = HashMap::new();
-        map.insert(
-            String::from("name"),
-            serde_json::Value::String(def.name.clone()),
-        );
-        map.insert(
-            String::from("docs"),
-            serde_json::Value::String(def.docs.clone()),
-        );
-
-        let module = Resource {
-            _type: String::from("module"),
-            id: def.qualname.clone(),
-            attributes: map,
-            links: None,
-            meta: None,
-            relationships: None,
-        };
-
-        document.included.as_mut().map(|v| v.push(module));
-    }
-
-    relationships.insert(String::from("modules"), relationship);
-
-    let len = root_def.qualname.len();
-    let krate = Resource {
-        _type: String::from("crate"),
-        // example:: -> example
-        id: root_def.qualname[..(len - 2)].to_string(),
-        attributes: map,
-        links: None,
-        meta: None,
-        relationships: Some(relationships),
-    };
-
-    document.data = Some(PrimaryData::Single(Box::new(krate)));
-
-    Ok(document)
-}
-
-pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
     let output_path = config.manifest_path.join("target/doc");
     fs::create_dir_all(&output_path)?;
 
@@ -171,14 +59,13 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
         print!("generating JSON...");
         stdout.flush()?;
 
-        let document = generate_json(&config)?;
-        let serialized = serde_json::to_string(&document)?;
+        let json = data.to_json(config)?;
 
         let mut json_path = output_path.clone();
         json_path.push("data.json");
 
         let mut file = File::create(json_path)?;
-        file.write_all(serialized.as_bytes())?;
+        file.write_all(json.as_bytes())?;
         println!("done.");
     }
 
@@ -276,4 +163,168 @@ fn generate_analysis(config: &Config) -> Result<()> {
     println!("done.");
 
     Ok(())
+}
+
+#[derive(Debug)]
+struct DocData {
+    krate: Crate,
+    data: HashMap<String, Item>,
+}
+
+impl DocData {
+    fn new(config: &Config) -> Result<DocData> {
+        let roots = config.host.def_roots()?;
+
+        let package = package_name_from_manifest_path(&config.manifest_path)?;
+        let id = roots.iter().find(|&&(_, ref name)| name == &package);
+        let root_id = match id {
+            Some(&(id, _)) => id,
+            _ => return Err(ErrorKind::CrateErr("example").into()),
+        };
+
+        let root_def = config.host.get_def(root_id)?;
+
+        let name_len = root_def.qualname.len();
+        let mut krate = Crate {
+            id: root_id,
+            // example:: -> example
+            name: root_def.qualname[..(name_len - 2)].to_string(),
+            docs: root_def.docs.clone(),
+            modules: Vec::new(),
+        };
+
+        let data = DocData::build_data(config, root_id, &mut krate)?;
+
+        Ok(DocData { krate, data })
+    }
+
+    fn build_data(
+        config: &Config,
+        root_id: analysis::Id,
+        krate: &mut Crate,
+    ) -> Result<HashMap<String, Item>> {
+        let mut data = HashMap::new();
+
+        let defs = config.host.for_each_child_def(
+            root_id,
+            |_, def| def.clone(),
+        )?;
+
+        for def in defs.iter() {
+            match def.kind {
+                DefKind::Mod => {
+                    data.insert(
+                        def.qualname.clone(),
+                        Item::Module {
+                            name: def.name.clone(),
+                            docs: def.docs.clone(),
+                        },
+                    );
+                    krate.modules.push(def.qualname.clone());
+                }
+                DefKind::Static => (),
+                DefKind::Const => (),
+                DefKind::Enum => (),
+                DefKind::Struct => (),
+                DefKind::Union => (),
+                DefKind::Trait => (),
+                DefKind::Function => (),
+                DefKind::Macro => (),
+                DefKind::Tuple => (),
+                DefKind::Method => (),
+                DefKind::Type => (),
+                DefKind::Local => (),
+                DefKind::Field => (),
+            }
+        }
+
+        Ok(data)
+    }
+
+    fn to_json(&self, config: &Config) -> Result<String> {
+        use jsonapi::api::*;
+
+        let root_def = config.host.get_def(self.krate.id)?;
+
+        let mut document = JsonApiDocument::default();
+
+        let mut map = HashMap::new();
+        map.insert(
+            String::from("docs"),
+            serde_json::Value::String(root_def.docs.clone()),
+        );
+
+        let mut relationships = HashMap::new();
+
+        let mut relationship = Relationship {
+            data: IdentifierData::Multiple(Vec::new()),
+            links: None,
+        };
+
+        //TODO this is bad, use real option handling in the loop
+        document.included = Some(Vec::new());
+
+        for (id, item) in self.data.iter() {
+            match item {
+                &Item::Module { ref name, ref docs } => {
+                    if let IdentifierData::Multiple(ref mut v) = relationship.data {
+                        v.push(ResourceIdentifier {
+                            _type: String::from("module"),
+                            id: id.clone(),
+                        });
+                    };
+                    let mut map = HashMap::new();
+                    map.insert(
+                        String::from("name"),
+                        serde_json::Value::String(name.clone()),
+                    );
+                    map.insert(
+                        String::from("docs"),
+                        serde_json::Value::String(docs.clone()),
+                    );
+
+                    let module = Resource {
+                        _type: String::from("module"),
+                        id: id.clone(),
+                        attributes: map,
+                        links: None,
+                        meta: None,
+                        relationships: None,
+                    };
+
+                    document.included.as_mut().map(|v| v.push(module));
+                }
+            }
+        }
+
+        relationships.insert(String::from("modules"), relationship);
+
+        let len = root_def.qualname.len();
+        let krate = Resource {
+            _type: String::from("crate"),
+            // example:: -> example
+            id: root_def.qualname[..(len - 2)].to_string(),
+            attributes: map,
+            links: None,
+            meta: None,
+            relationships: Some(relationships),
+        };
+
+        document.data = Some(PrimaryData::Single(Box::new(krate)));
+
+        Ok(serde_json::to_string(&document)?)
+    }
+}
+
+#[derive(Debug)]
+struct Crate {
+    id: analysis::Id,
+    name: String,
+    docs: String,
+    modules: Vec<String>,
+}
+
+#[derive(Debug)]
+enum Item {
+    Module { name: String, docs: String },
 }
