@@ -3,19 +3,19 @@ extern crate rls_analysis as analysis;
 extern crate serde_json;
 #[macro_use]
 extern crate error_chain;
+extern crate indicatif;
 
 pub mod error;
 use error::*;
 
 use std::collections::HashMap;
 use std::fs::{self, File};
-use std::io;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use analysis::raw::DefKind;
-
+use indicatif::ProgressBar;
 
 pub struct Config {
     manifest_path: PathBuf,
@@ -53,11 +53,10 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
     let output_path = config.manifest_path.join("target/doc");
     fs::create_dir_all(&output_path)?;
 
-    let mut stdout = io::stdout();
-
     if artifacts.contains(&"json") {
-        print!("generating JSON...");
-        stdout.flush()?;
+        let spinner = ProgressBar::new_spinner();
+        spinner.enable_steady_tick(50);
+        spinner.set_message("Generating JSON: In Progress");
 
         let json = data.to_json(config)?;
 
@@ -66,13 +65,14 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
 
         let mut file = File::create(json_path)?;
         file.write_all(json.as_bytes())?;
-        println!("done.");
+        spinner.finish_with_message("Generating JSON: Done");
     }
 
     // now that we've written out the data, we can write out the rest of it
     if artifacts.contains(&"assets") {
-        print!("copying assets...");
-        stdout.flush()?;
+        let spinner = ProgressBar::new_spinner();
+        spinner.enable_steady_tick(50);
+        spinner.set_message("Copying Assets: In Progress");
 
         let mut assets_path = output_path.clone();
         assets_path.push("assets");
@@ -82,7 +82,7 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
             create_asset_file(asset.name, &output_path, asset.contents)?;
         }
 
-        println!("done.");
+        spinner.finish_with_message("Copying Assets: Done");
     }
 
     Ok(())
@@ -139,15 +139,14 @@ fn generate_analysis(config: &Config) -> Result<()> {
         .env("RUSTFLAGS", "-Z save-analysis")
         .env("CARGO_TARGET_DIR", manifest_path.join("target/rls"));
 
-    let mut stdout = io::stdout();
-
-    print!("generating save analysis data...");
-    stdout.flush()?;
+    let spinner = ProgressBar::new_spinner();
+    spinner.enable_steady_tick(50);
+    spinner.set_message("Generating save analysis data: In Progress");
 
     let output = command.output()?;
 
     if !output.status.success() {
-        println!("");
+        spinner.finish_with_message("Generating save analysis data: Error");
         return Err(
             ErrorKind::Cargo(
                 output.status,
@@ -155,12 +154,13 @@ fn generate_analysis(config: &Config) -> Result<()> {
             ).into(),
         );
     }
-    println!("done.");
+    spinner.finish_with_message("Generating save analysis data: Done");
 
-    print!("loading save analysis data...");
-    stdout.flush()?;
+    let spinner = ProgressBar::new_spinner();
+    spinner.enable_steady_tick(50);
+    spinner.set_message("Loading save analysis data: In Progress");
     config.host.reload(manifest_path, manifest_path, true)?;
-    println!("done.");
+    spinner.finish_with_message("Loading save analysis data: Done");
 
     Ok(())
 }
