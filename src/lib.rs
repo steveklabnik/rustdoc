@@ -7,6 +7,9 @@ extern crate error_chain;
 pub mod error;
 use error::*;
 
+pub mod item;
+use item::item::Metadata;
+
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io;
@@ -168,7 +171,6 @@ fn generate_analysis(config: &Config) -> Result<()> {
 #[derive(Debug)]
 struct DocData {
     krate: Crate,
-    data: HashMap<String, Item>,
 }
 
 impl DocData {
@@ -190,21 +192,15 @@ impl DocData {
             // example:: -> example
             name: root_def.qualname[..(name_len - 2)].to_string(),
             docs: root_def.docs.clone(),
-            modules: Vec::new(),
+            metadata: Vec::new(),
         };
 
-        let data = DocData::build_data(config, root_id, &mut krate)?;
+        DocData::build_data(config, root_id, &mut krate)?;
 
-        Ok(DocData { krate, data })
+        Ok(DocData { krate })
     }
 
-    fn build_data(
-        config: &Config,
-        root_id: analysis::Id,
-        krate: &mut Crate,
-    ) -> Result<HashMap<String, Item>> {
-        let mut data = HashMap::new();
-
+    fn build_data(config: &Config, root_id: analysis::Id, krate: &mut Crate) -> Result<()> {
         let defs = config.host.for_each_child_def(
             root_id,
             |_, def| def.clone(),
@@ -213,14 +209,11 @@ impl DocData {
         for def in defs.iter() {
             match def.kind {
                 DefKind::Mod => {
-                    data.insert(
-                        def.qualname.clone(),
-                        Item::Module {
-                            name: def.name.clone(),
-                            docs: def.docs.clone(),
-                        },
-                    );
-                    krate.modules.push(def.qualname.clone());
+                    krate.metadata.push(Metadata::Module {
+                        qualified_name: def.qualname.clone(),
+                        name: def.name.clone(),
+                        docs: def.docs.clone(),
+                    });
                 }
                 DefKind::Static => (),
                 DefKind::Const => (),
@@ -238,7 +231,7 @@ impl DocData {
             }
         }
 
-        Ok(data)
+        Ok(())
     }
 
     fn to_json(&self, config: &Config) -> Result<String> {
@@ -264,13 +257,17 @@ impl DocData {
         //TODO this is bad, use real option handling in the loop
         document.included = Some(Vec::new());
 
-        for (id, item) in self.data.iter() {
+        for item in self.krate.metadata.iter() {
             match item {
-                &Item::Module { ref name, ref docs } => {
+                &Metadata::Module {
+                    ref qualified_name,
+                    ref name,
+                    ref docs,
+                } => {
                     if let IdentifierData::Multiple(ref mut v) = relationship.data {
                         v.push(ResourceIdentifier {
                             _type: String::from("module"),
-                            id: id.clone(),
+                            id: qualified_name.clone(),
                         });
                     };
                     let mut map = HashMap::new();
@@ -285,7 +282,7 @@ impl DocData {
 
                     let module = Resource {
                         _type: String::from("module"),
-                        id: id.clone(),
+                        id: qualified_name.clone(),
                         attributes: map,
                         links: None,
                         meta: None,
@@ -294,6 +291,7 @@ impl DocData {
 
                     document.included.as_mut().map(|v| v.push(module));
                 }
+                _ => {}
             }
         }
 
@@ -321,10 +319,5 @@ struct Crate {
     id: analysis::Id,
     name: String,
     docs: String,
-    modules: Vec<String>,
-}
-
-#[derive(Debug)]
-enum Item {
-    Module { name: String, docs: String },
+    metadata: Vec<Metadata>,
 }
