@@ -62,7 +62,7 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
         print!("generating JSON...");
         stdout.flush()?;
 
-        let json = data.to_json(config)?;
+        let json = data.to_json()?;
 
         let mut json_path = output_path.clone();
         json_path.push("data.json");
@@ -234,17 +234,15 @@ impl DocData {
         Ok(())
     }
 
-    fn to_json(&self, config: &Config) -> Result<String> {
+    fn to_json(&self) -> Result<String> {
         use jsonapi::api::*;
-
-        let root_def = config.host.get_def(self.krate.id)?;
 
         let mut document = JsonApiDocument::default();
 
         let mut map = HashMap::new();
         map.insert(
             String::from("docs"),
-            serde_json::Value::String(root_def.docs.clone()),
+            serde_json::Value::String(self.krate.docs.clone()),
         );
 
         let mut relationships = HashMap::new();
@@ -297,11 +295,11 @@ impl DocData {
 
         relationships.insert(String::from("modules"), relationship);
 
-        let len = root_def.qualname.len();
+        let len = self.krate.name.len();
         let krate = Resource {
             _type: String::from("crate"),
             // example:: -> example
-            id: root_def.qualname[..(len - 2)].to_string(),
+            id: self.krate.name[..(len - 2)].to_string(),
             attributes: map,
             links: None,
             meta: None,
