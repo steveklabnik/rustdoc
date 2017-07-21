@@ -195,18 +195,12 @@ impl DocData {
             metadata: Vec::new(),
         };
 
-        DocData::build_data(config, root_id, &mut krate)?;
-
-        Ok(DocData { krate })
-    }
-
-    fn build_data(config: &Config, root_id: analysis::Id, krate: &mut Crate) -> Result<()> {
         let defs = config.host.for_each_child_def(
             root_id,
             |_, def| def.clone(),
         )?;
 
-        for def in defs.iter() {
+        for def in defs.into_iter() {
             match def.kind {
                 DefKind::Mod => {
                     krate.metadata.push(Metadata::Module {
@@ -231,7 +225,7 @@ impl DocData {
             }
         }
 
-        Ok(())
+        Ok(DocData { krate })
     }
 
     fn to_json(&self) -> Result<String> {
