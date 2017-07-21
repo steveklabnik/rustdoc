@@ -33,3 +33,14 @@ pub fn sample_function(x: i32) -> ExampleStruct {
 pub mod example_module {
     pub struct AnotherStruct;
 }
+
+/// nested 1
+pub mod nested1 {
+    /// nested 2
+    pub mod nested2 {
+        /// nested 3
+        pub mod nested3 {
+
+        }
+    }
+}

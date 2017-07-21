@@ -206,7 +206,25 @@ impl DocData {
             metadata: Vec::new(),
         };
 
-        let defs = host.for_each_child_def(root_id, |_, def| def.clone())?;
+        // TODO: https://github.com/steveklabnik/rustdoc/issues/70
+        fn recur(id: &analysis::Id, host: &AnalysisHost) -> Vec<analysis::Def> {
+            let defs_and_ids = host.for_each_child_def(*id, |id, def| (id, def.clone()))
+                .unwrap();
+
+            let mut v = Vec::new();
+
+            for (id, def) in defs_and_ids.into_iter() {
+                v.push(def);
+
+                for def in recur(&id, host).into_iter() {
+                    v.push(def);
+                }
+            }
+
+            v
+        }
+
+        let defs: Vec<analysis::Def> = recur(&root_id, host);
 
         for def in defs.into_iter() {
             match def.kind {
