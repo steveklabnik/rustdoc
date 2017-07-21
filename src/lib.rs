@@ -204,9 +204,9 @@ impl DocData {
             match def.kind {
                 DefKind::Mod => {
                     krate.metadata.push(Metadata::Module {
-                        qualified_name: def.qualname.clone(),
-                        name: def.name.clone(),
-                        docs: def.docs.clone(),
+                        qualified_name: def.qualname,
+                        name: def.name,
+                        docs: def.docs,
                     });
                 }
                 DefKind::Static => (),
