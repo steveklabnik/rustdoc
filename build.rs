@@ -1,14 +1,11 @@
 #![recursion_limit = "1024"]
 #[macro_use]
-extern crate lazy_static;
-#[macro_use]
 extern crate error_chain;
 extern crate walkdir;
 
-use walkdir::{WalkDir, WalkDirIterator, DirEntry};
+use walkdir::WalkDir;
 use std::fmt;
 use std::fs::File;
-use std::ffi::OsStr;
 use std::io::{Write, BufWriter, stderr};
 use std::process::exit;
 
@@ -24,15 +21,6 @@ const DIST: &str = "frontend/dist/";
 
 // Where to write the Assets out to
 const ASSETOUT: &str = "src/asset.in";
-
-// Ignore directories specified here
-lazy_static! {
-    static ref IGNORE: Vec<&'static OsStr> = {
-        vec![
-            OsStr::new("ember-fetch")
-        ]
-    };
-}
 
 /// Find the assets and write out the corresponding files
 pub fn main() {
@@ -60,9 +48,7 @@ pub fn main() {
 fn acquire_assets() -> Result<Vec<Asset>> {
     let mut output: Vec<Asset> = Vec::new();
 
-    let filter_entries = |e: &DirEntry| !IGNORE.contains(&e.file_name());
-
-    for entry in WalkDir::new(DIST).into_iter().filter_entry(filter_entries) {
+    for entry in WalkDir::new(DIST).into_iter() {
         let entry = entry?;
         if entry.metadata()?.is_file() {
             output.push(Asset {

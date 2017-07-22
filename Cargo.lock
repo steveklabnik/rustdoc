@@ -6,7 +6,6 @@ dependencies = [
  "error-chain 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "indicatif 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonapi 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "lazy_static 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "rls-analysis 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 0.9.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "walkdir 1.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
