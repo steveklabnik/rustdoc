@@ -6,6 +6,8 @@ extern crate error_chain;
 extern crate indicatif;
 
 pub mod error;
+pub use error::{Error, ErrorKind};
+
 use error::*;
 
 pub mod item;
