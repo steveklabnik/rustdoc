@@ -60,12 +60,12 @@ error_chain! {
             display("JSON pointer '{}' matched no data", p)
         }
         ValueMismatch(value: String, re: String) {
-            description("the value did not match the regular expression")
-            display("the value '{}' did not match the regular expression '{}'", value, re)
+            description("The value did not match the regular expression")
+            display("The value '{}' did not match the regular expression '{}'", value, re)
         }
         ValueType(value: Value) {
-            description("the JSON pointer did not point at a string")
-            display("the JSON pointer did not point at a string: {:?}", value)
+            description("The JSON pointer did not point at a string")
+            display("The JSON pointer did not point at a string: {:?}", value)
         }
     }
 }
@@ -80,7 +80,7 @@ fn generate_analysis(source_file: &Path, tempdir: &Path) -> Result<AnalysisHost>
         .current_dir(tempdir.to_str().unwrap())
         .status()?;
     if !rustc_status.success() {
-        bail!("compilation of {} failed", source_filename);
+        bail!("Compilation of {} failed", source_filename);
     }
 
     // rls-analysis expects the analysis files to be in a specific directory -- one usually created
@@ -120,7 +120,7 @@ fn check(source_file: &Path, host: &AnalysisHost) -> Result<()> {
     }
 
     if !found_test {
-        bail!("found no tests in {}", source_file.display());
+        bail!("Found no tests in {}", source_file.display());
     }
 
     Ok(())
@@ -155,7 +155,7 @@ fn run_test(json: &serde_json::Value, pointer: &str, regex: &Regex) -> Result<()
     };
 
     let value = value.as_str().ok_or_else(
-        || "the JSON pointer pointed at a type other than string",
+        || "The JSON pointer pointed at a type other than string",
     )?;
 
     if regex.is_match(&value) {
