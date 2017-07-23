@@ -99,7 +99,7 @@ fn generate_analysis(source_file: &Path, tempdir: &Path) -> Result<AnalysisHost>
     fs::rename(&save_analysis_dir, &expected_analysis_dir)?;
 
     let host = AnalysisHost::new(Target::Debug);
-    host.reload(&tempdir, &tempdir, true)?;
+    host.reload(tempdir, tempdir, true)?;
 
     Ok(host)
 }
@@ -164,7 +164,7 @@ fn run_test(json: &serde_json::Value, pointer: &str, regex: &Regex) -> Result<()
         "The JSON pointer pointed at a type other than string",
     )?;
 
-    if regex.is_match(&value) {
+    if regex.is_match(value) {
         Ok(())
     } else {
         bail!(ErrorKind::ValueMismatch(
@@ -199,6 +199,8 @@ fn source() {
 }
 
 mod tests {
+    #![cfg_attr(feature = "cargo-clippy", allow(trivial_regex))]
+
     use super::*;
 
     macro_rules! assert_err {
