@@ -157,7 +157,7 @@ fn parse_test(line: &str) -> Option<Result<(String, Regex)>> {
 fn run_test(json: &serde_json::Value, pointer: &str, regex: &Regex) -> Result<()> {
     let value = match json.pointer(pointer) {
         Some(value) => value,
-        None => bail!(ErrorKind::JsonPointer(pointer.to_owned())),
+        None => return Err(ErrorKind::JsonPointer(pointer.to_owned()).into()),
     };
 
     let value = value.as_str().ok_or_else(
