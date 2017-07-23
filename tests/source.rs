@@ -72,12 +72,16 @@ error_chain! {
 
 /// Create analysis data from a given source file. Returns an analysis host with the data loaded.
 fn generate_analysis(source_file: &Path, tempdir: &Path) -> Result<AnalysisHost> {
-    let source_filename = source_file.to_str().unwrap();
+    let source_filename = source_file.to_str().ok_or_else(|| {
+        ErrorKind::Msg("Source filename contained invalid UTF-8".into())
+    })?;
 
     let rustc_status = Command::new("rustc")
         .args(&["-Z", "save-analysis"])
         .arg(source_filename)
-        .current_dir(tempdir.to_str().unwrap())
+        .current_dir(tempdir.to_str().expect(
+            "tempdir filename contained invalid UTF-8",
+        ))
         .status()?;
     if !rustc_status.success() {
         bail!("Compilation of {} failed", source_filename);
@@ -102,9 +106,11 @@ fn generate_analysis(source_file: &Path, tempdir: &Path) -> Result<AnalysisHost>
 
 /// Runs all tests in a given source file.
 fn check(source_file: &Path, host: &AnalysisHost) -> Result<()> {
-    let package_name = source_file.file_stem().unwrap();
-    let json = DocData::new(host, package_name.to_str().unwrap())?
-        .to_json()?;
+    let package_name = source_file
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .ok_or_else(|| ErrorKind::Msg("Invalid source file stem".into()))?;
+    let json = DocData::new(host, package_name)?.to_json()?;
     let json = serde_json::from_str(&json)?;
 
     let source = BufReader::new(File::open(source_file)?);
