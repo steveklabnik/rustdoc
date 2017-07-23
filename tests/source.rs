@@ -160,8 +160,8 @@ fn run_test(json: &serde_json::Value, pointer: &str, regex: &Regex) -> Result<()
         None => return Err(ErrorKind::JsonPointer(pointer.to_owned()).into()),
     };
 
-    let value = value.as_str().ok_or_else(
-        || "The JSON pointer pointed at a type other than string",
+    let value = value.as_str().ok_or(
+        "The JSON pointer pointed at a type other than string",
     )?;
 
     if regex.is_match(&value) {
