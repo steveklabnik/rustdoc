@@ -17,6 +17,5 @@ error-chain = "0.10.0"
 indicatif = "0.6.0"
 
 [build-dependencies]
-lazy_static = "0.2.8"
 walkdir = "1.0.7"
 error-chain = "0.10.0"
