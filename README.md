@@ -54,6 +54,20 @@ directory ignored, as you don't want to commit generated files. In this case, th
 we don't want `ember` to be a dependency of installing `rustdoc`, and so we do commit
 those generated files.
 
+## Usage
+
+Currently, it only builds the given example. Do it as follow:
+
+```
+cargo run --release -- --manifest-path=example
+```
+
+Then open a web browser and open "rustdoc/example/target/doc/index.html".
+
+## Known issues (and their solution)
+
+ * "javascript error: data.json isn't found": go to `example/target/doc` and then run `python -m SimpleHTTPServer`. Then go to the given URL above.
+
 ## Contributing
 
 We'd love your help with making `rustdoc` better! It's currently very early days, so
