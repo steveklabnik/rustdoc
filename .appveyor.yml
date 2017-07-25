@@ -10,5 +10,4 @@ build: false
 
 test_script:
   - cargo build
- # see https://github.com/steveklabnik/rustdoc/issues/22
- #- cargo test
+  - cargo test
