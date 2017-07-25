@@ -110,15 +110,13 @@ fn generate_analysis(source_file: &Path, tempdir: &Path) -> Result<AnalysisHost>
     #[cfg(windows)]
     fn workaround(tempdir: &Path) -> Result<()> {
         let save_analysis_dir = tempdir.join("save-analysis-temp");
-        let expected_analysis_dir = tempdir
-            .join("target")
-            .join("rls")
-            .join(&Target::Debug.to_string());
+        let expected_analysis_dir = tempdir.join("target").join("rls").join(
+            &Target::Debug.to_string(),
+        );
 
         fs::create_dir_all(&expected_analysis_dir)?;
 
-        let expected_analysis_dir = expected_analysis_dir
-            .join("save-analysis");
+        let expected_analysis_dir = expected_analysis_dir.join("save-analysis");
         fs::rename(&save_analysis_dir, &expected_analysis_dir)?;
 
         Ok(())
