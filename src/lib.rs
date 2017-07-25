@@ -6,6 +6,8 @@ extern crate error_chain;
 extern crate indicatif;
 
 pub mod error;
+pub use error::{Error, ErrorKind};
+
 use error::*;
 
 pub mod item;
@@ -17,6 +19,7 @@ use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use analysis::AnalysisHost;
 use analysis::raw::DefKind;
 use indicatif::ProgressBar;
 
@@ -51,7 +54,8 @@ impl Config {
 pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
     generate_analysis(config)?;
 
-    let data = DocData::new(config)?;
+    let package_name = package_name_from_manifest_path(&config.manifest_path)?;
+    let data = DocData::new(&config.host, &package_name)?;
 
     let output_path = config.manifest_path.join("target/doc");
     fs::create_dir_all(&output_path)?;
@@ -177,22 +181,21 @@ fn generate_analysis(config: &Config) -> Result<()> {
 }
 
 #[derive(Debug)]
-struct DocData {
+pub struct DocData {
     krate: Crate,
 }
 
 impl DocData {
-    fn new(config: &Config) -> Result<DocData> {
-        let roots = config.host.def_roots()?;
+    pub fn new(host: &AnalysisHost, package_name: &str) -> Result<DocData> {
+        let roots = host.def_roots()?;
 
-        let package = package_name_from_manifest_path(&config.manifest_path)?;
-        let id = roots.iter().find(|&&(_, ref name)| name == &package);
+        let id = roots.iter().find(|&&(_, ref name)| name == &package_name);
         let root_id = match id {
             Some(&(id, _)) => id,
             _ => return Err(ErrorKind::CrateErr("example").into()),
         };
 
-        let root_def = config.host.get_def(root_id)?;
+        let root_def = host.get_def(root_id)?;
 
         let name_len = root_def.qualname.len();
         let mut krate = Crate {
@@ -203,10 +206,7 @@ impl DocData {
             metadata: Vec::new(),
         };
 
-        let defs = config.host.for_each_child_def(
-            root_id,
-            |_, def| def.clone(),
-        )?;
+        let defs = host.for_each_child_def(root_id, |_, def| def.clone())?;
 
         for def in defs.into_iter() {
             match def.kind {
@@ -236,7 +236,7 @@ impl DocData {
         Ok(DocData { krate })
     }
 
-    fn to_json(&self) -> Result<String> {
+    pub fn to_json(&self) -> Result<String> {
         use jsonapi::api::*;
 
         let mut document = JsonApiDocument::default();
