@@ -89,14 +89,42 @@ fn generate_analysis(source_file: &Path, tempdir: &Path) -> Result<AnalysisHost>
 
     // rls-analysis expects the analysis files to be in a specific directory -- one usually created
     // by cargo.
-    let save_analysis_dir = tempdir.join("save-analysis-temp");
-    let expected_analysis_dir = tempdir
-        .join("target")
-        .join("rls")
-        .join(&Target::Debug.to_string())
-        .join("save-analysis");
-    fs::create_dir_all(&expected_analysis_dir)?;
-    fs::rename(&save_analysis_dir, &expected_analysis_dir)?;
+
+    // this is a workaround for platform-specific behavior, see
+    // https://doc.rust-lang.org/stable/std/fs/fn.rename.html#platform-specific-behavior
+    #[cfg(not(windows))]
+    fn workaround(tempdir: &Path) -> Result<()> {
+        let save_analysis_dir = tempdir.join("save-analysis-temp");
+        let expected_analysis_dir = tempdir
+            .join("target")
+            .join("rls")
+            .join(&Target::Debug.to_string())
+            .join("save-analysis");
+
+        fs::create_dir_all(&expected_analysis_dir)?;
+        fs::rename(&save_analysis_dir, &expected_analysis_dir)?;
+
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    fn workaround(tempdir: &Path) -> Result<()> {
+        let save_analysis_dir = tempdir.join("save-analysis-temp");
+        let expected_analysis_dir = tempdir
+            .join("target")
+            .join("rls")
+            .join(&Target::Debug.to_string());
+
+        fs::create_dir_all(&expected_analysis_dir)?;
+
+        let expected_analysis_dir = expected_analysis_dir
+            .join("save-analysis");
+        fs::rename(&save_analysis_dir, &expected_analysis_dir)?;
+
+        Ok(())
+    }
+
+    workaround(&tempdir)?;
 
     let host = AnalysisHost::new(Target::Debug);
     host.reload(tempdir, tempdir, true)?;
