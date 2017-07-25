@@ -208,9 +208,9 @@ fn run_test(json: &serde_json::Value, pointer: &str, regex: &Regex) -> Result<()
 #[test]
 fn source() {
     let source_dir = Path::new("tests/source");
-    let tempdir = TempDir::new("rustdoc-test").unwrap();
 
     for source_file in fs::read_dir(source_dir).unwrap() {
+        let tempdir = TempDir::new("rustdoc-test").unwrap();
         let source_file = source_file.unwrap();
         print!(
             "checking {} ... ",
