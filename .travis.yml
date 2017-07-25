@@ -16,6 +16,6 @@ before_install:
 script:
   - rustfmt --write-mode diff build.rs
   - rustfmt --write-mode diff $(find src -type f | grep .rs)
-  - cd frontend && npm install && ember build -prod && npm run test
+  - cd frontend && npm install && npm run prod && npm run test
   - cd .. && cargo build && cargo test && cd example
   - ../target/debug/rustdoc build
