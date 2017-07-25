@@ -6,6 +6,4 @@
 // @has /included/0/attributes/docs 'a module'
 
 /// a module
-mod mod1 {
-
-}
+mod mod1 {}
