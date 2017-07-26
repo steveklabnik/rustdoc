@@ -155,8 +155,7 @@ fn check(source_file: &Path, host: &AnalysisHost) -> Result<()> {
     let mut found_test = false;
     for line in source.lines() {
         if let Some(test_case) = parse_test(&line?) {
-            let TestCase { pointer, regex, .. } = test_case?;
-            run_test(&json, &pointer, &regex)?;
+            run_test(&json, test_case?)?;
             if !found_test {
                 found_test = true;
             }
@@ -177,49 +176,55 @@ fn parse_test(line: &str) -> Option<Result<TestCase>> {
     lazy_static! {
         static ref DIRECTIVE_RE: Regex =
             Regex::new(r"^[[:^alnum:]]*@(?P<directive>[a-z]+)").unwrap();
-        static ref COMMAND_RE: Regex =
-            Regex::new(r"@has (?P<pointer>[[:alnum:]/]+) '(?P<match>.+)'").unwrap();
+        static ref HAS_RE: Regex =
+            Regex::new(r"@(?P<negated>!)?has (?P<pointer>[[:alnum:]/]+) '(?P<match>.+)'").unwrap();
     }
 
     if let Some(caps) = DIRECTIVE_RE.captures(line) {
         let directive = &caps["directive"];
-        if let Some(caps) = COMMAND_RE.captures(line) {
-            let regex = match Regex::new(&caps["match"]) {
-                Ok(regex) => regex,
-                Err(err) => return Some(Err(err.into())),
-            };
-            let pointer = caps["pointer"].to_owned();
-            Some(Ok(TestCase {
-                pointer,
-                regex,
-                negated: false,
-            }))
-        } else {
-            let err = ErrorKind::InvalidDirective(directive.into());
-            Some(Err(err.into()))
+        match directive {
+            "has" => {
+                if let Some(caps) = HAS_RE.captures(line) {
+                    let regex = match Regex::new(&caps["match"]) {
+                        Ok(regex) => regex,
+                        Err(err) => return Some(Err(err.into())),
+                    };
+                    let pointer = caps["pointer"].to_owned();
+                    return Some(Ok(TestCase {
+                        pointer,
+                        regex,
+                        negated: caps.name("negated").is_some(),
+                    }));
+                }
+            }
+            _ => (),
         }
+
+        let err = ErrorKind::InvalidDirective(directive.into());
+        Some(Err(err.into()))
     } else {
         None
     }
 }
 
-/// Compares a JSON pointer against a Regex.
-fn run_test(json: &serde_json::Value, pointer: &str, regex: &Regex) -> Result<()> {
-    let value = match json.pointer(pointer) {
+/// Runs a test case. Returns `Ok(())` if the test passes, otherwise returns the reason the test
+/// failed.
+fn run_test(json: &serde_json::Value, case: TestCase) -> Result<()> {
+    let value = match json.pointer(&case.pointer) {
         Some(value) => value,
-        None => return Err(ErrorKind::JsonPointer(pointer.to_owned()).into()),
+        None => return Err(ErrorKind::JsonPointer(case.pointer).into()),
     };
 
     let value = value.as_str().ok_or(
         "The JSON pointer pointed at a type other than string",
     )?;
 
-    if regex.is_match(value) {
+    if case.regex.is_match(value) == !case.negated {
         Ok(())
     } else {
         bail!(ErrorKind::ValueMismatch(
             value.to_owned(),
-            regex.as_str().to_owned(),
+            case.regex.as_str().to_owned(),
         ));
     }
 }
@@ -293,13 +298,42 @@ mod tests {
             "test": "value",
         });
 
-        assert!(super::run_test(&json, "/test", &Regex::new("value").unwrap()).is_ok());
+        super::run_test(
+            &json,
+            TestCase {
+                pointer: "/test".into(),
+                regex: Regex::new("value").unwrap(),
+                negated: false,
+            },
+        ).unwrap();
 
-        let err = super::run_test(&json, "/test", &Regex::new("wrong value").unwrap()).unwrap_err();
+        super::run_test(
+            &json,
+            TestCase {
+                pointer: "/test".into(),
+                regex: Regex::new("nonexistent").unwrap(),
+                negated: true,
+            },
+        ).unwrap();
+
+        let err = super::run_test(
+            &json,
+            TestCase {
+                pointer: "/test".into(),
+                regex: Regex::new("wrong value").unwrap(),
+                negated: false,
+            },
+        ).unwrap_err();
         assert_err!(err, ErrorKind::ValueMismatch);
 
-        let err = super::run_test(&json, "/nonexistent", &Regex::new("value").unwrap())
-            .unwrap_err();
+        let err = super::run_test(
+            &json,
+            TestCase {
+                pointer: "/nonexistent".into(),
+                regex: Regex::new("value").unwrap(),
+                negated: false,
+            },
+        ).unwrap_err();
         assert_err!(err, ErrorKind::JsonPointer);
     }
 }
