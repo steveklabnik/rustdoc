@@ -178,7 +178,7 @@ fn parse_test(line: &str) -> Option<Result<TestCase>> {
         static ref DIRECTIVE_RE: Regex =
             Regex::new(r"^[[:^alnum:]]*@(?P<directive>[a-z]+)").unwrap();
         static ref COMMAND_RE: Regex =
-            Regex::new("@has (?P<pointer>[a-z/]+) '(?P<match>.+)'").unwrap();
+            Regex::new(r"@has (?P<pointer>[[:alnum:]/]+) '(?P<match>.+)'").unwrap();
     }
 
     if let Some(caps) = DIRECTIVE_RE.captures(line) {
@@ -267,6 +267,13 @@ mod tests {
         let test = super::parse_test("// @has /test 'value'").unwrap().unwrap();
         assert_eq!(test.pointer, "/test");
         assert_eq!(test.regex.as_str(), "value");
+        assert!(!test.negated);
+
+        let test = super::parse_test("// @has /included/0/attributes/ 'a module'")
+            .unwrap()
+            .unwrap();
+        assert_eq!(test.pointer, "/included/0/attributes/");
+        assert_eq!(test.regex.as_str(), "a module");
         assert!(!test.negated);
 
         assert!(super::parse_test(r#"fn main() { println!("no test case"); }"#).is_none());
