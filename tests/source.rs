@@ -38,7 +38,6 @@ use std::process::Command;
 use analysis::{AnalysisHost, Target};
 use regex::Regex;
 use serde_json::Value;
-use tempdir::TempDir;
 
 use rustdoc::DocData;
 
@@ -200,29 +199,8 @@ fn run_test(json: &serde_json::Value, pointer: &str, regex: &Regex) -> Result<()
     }
 }
 
-/// The test that actually checks all the source tests.
-///
-/// Consider generating these tests in the build script to allow parallelism.
-#[test]
-fn source() {
-    let source_dir = Path::new("tests/source");
-
-    for source_file in fs::read_dir(source_dir).unwrap() {
-        let tempdir = TempDir::new("rustdoc-test").unwrap();
-        let source_file = source_file.unwrap();
-        print!(
-            "checking {} ... ",
-            source_file.file_name().to_str().unwrap()
-        );
-
-        let source_file = std::env::current_dir().unwrap().join(source_file.path());
-        let host = generate_analysis(&source_file, tempdir.path()).unwrap();
-        check(&source_file, &host).unwrap();
-
-        io::stdout().flush().unwrap();
-        println!("ok");
-    }
-}
+// Tests generated from the files in tests/source
+include!(concat!(env!("OUT_DIR"), "/source_generated.rs"));
 
 mod tests {
     #![cfg_attr(feature = "cargo-clippy", allow(trivial_regex))]

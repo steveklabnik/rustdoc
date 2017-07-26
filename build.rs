@@ -1,13 +1,21 @@
 #![recursion_limit = "1024"]
 #[macro_use]
 extern crate error_chain;
+#[macro_use]
+extern crate quote;
+extern crate syn;
 extern crate walkdir;
 
-use walkdir::WalkDir;
+use std::env;
 use std::fmt;
 use std::fs::File;
+use std::fs;
 use std::io::{Write, BufWriter, stderr};
+use std::path::Path;
 use std::process::exit;
+
+use quote::Ident;
+use walkdir::WalkDir;
 
 error_chain! {
     foreign_links {
@@ -16,15 +24,22 @@ error_chain! {
     }
 }
 
+const SOURCE_TEST_DIR: &str = "tests/source";
+
 // Location of the dist folder
 const DIST: &str = "frontend/dist/";
 
 // Where to write the Assets out to
 const ASSETOUT: &str = "src/asset.in";
 
-/// Find the assets and write out the corresponding files
-pub fn main() {
-    if let Err(ref e) = write_asset_file() {
+fn run() -> Result<()> {
+    generate_source_tests()?;
+    write_asset_file()?;
+    Ok(())
+}
+
+fn main() {
+    if let Err(ref e) = run() {
         let stderr = &mut stderr();
         let errmsg = "Error writing to stderr";
 
@@ -100,4 +115,40 @@ impl fmt::Display for Asset {
         buffer.push_str("\") \n}");
         write!(f, "{}", &buffer)
     }
+}
+
+/// Create source tests from the files in the `tests/source` directory.
+fn generate_source_tests() -> Result<()> {
+    let out_dir = env::var("OUT_DIR").unwrap();
+    let mut generated_code = File::create(Path::new(&out_dir).join("source_generated.rs"))?;
+
+    let source_dir = Path::new(SOURCE_TEST_DIR);
+    for source_file in fs::read_dir(&source_dir)? {
+        let source_file = source_file?.path();
+
+        let test_name = Ident::new(source_file
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .ok_or_else(|| "Invalid source file stem")?);
+
+        let source_file_path = source_file.to_str().unwrap();
+
+        let test =
+            quote! {
+            #[test]
+            fn #test_name() {
+                use std::env;
+                use tempdir::TempDir;
+
+                let tempdir = TempDir::new("rustdoc-test").unwrap();
+                let source_file = env::current_dir().unwrap().join(#source_file_path);
+                let host = generate_analysis(&source_file, tempdir.path()).unwrap();
+                check(&source_file, &host).unwrap();
+            }
+        };
+
+        write!(generated_code, "{}", test.to_string())?;
+    }
+
+    Ok(())
 }
