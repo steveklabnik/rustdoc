@@ -13,6 +13,7 @@ use std::fs;
 use std::io::{Write, BufWriter, stderr};
 use std::path::Path;
 use std::process::exit;
+use std::thread;
 
 use quote::Ident;
 use walkdir::WalkDir;
@@ -33,8 +34,12 @@ const DIST: &str = "frontend/dist/";
 const ASSETOUT: &str = "src/asset.in";
 
 fn run() -> Result<()> {
-    generate_source_tests()?;
-    write_asset_file()?;
+    let source_thread = thread::spawn(|| generate_source_tests());
+    let asset_thread = thread::spawn(|| write_asset_file());
+
+    source_thread.join().unwrap()?;
+    asset_thread.join().unwrap()?;
+
     Ok(())
 }
 
