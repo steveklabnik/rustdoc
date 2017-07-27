@@ -1,6 +1,6 @@
 error_chain! {
     errors {
-        CrateErr(crate_name: &'static str) {
+        CrateErr(crate_name: String) {
             description("Crate not found")
             display("Crate not found: \"{}\"", crate_name)
         }
