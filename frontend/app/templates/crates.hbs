@@ -5,7 +5,7 @@
 <ul>
 {{#each model.modules as |mod|}}
   <li>
-    {{#link-to 'modules' model.id mod.name }}
+    {{#link-to 'modules' mod }}
       {{ mod.name }}
     {{/link-to}}
   </li>

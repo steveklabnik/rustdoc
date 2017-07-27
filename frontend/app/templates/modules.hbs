@@ -1,4 +1,17 @@
 <h1>Module {{ model.name }}</h1>
 {{markdown-render model.docs }}
 
+<h2>Submodules</h2>
+
+<ul>
+{{#each model.child_modules as |mod|}}
+  <li>
+    {{#link-to 'modules' mod }}
+      {{ mod.name }}
+    {{/link-to}}
+  </li>
+{{/each}}
+</ul>
+
+
 {{outlet}}
