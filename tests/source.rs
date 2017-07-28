@@ -28,18 +28,20 @@ extern crate serde_json;
 extern crate regex;
 extern crate rls_analysis as analysis;
 extern crate tempdir;
+extern crate jsonapi;
 
 use std::fs::{self, File};
 use std::io::{self, BufReader};
 use std::io::prelude::*;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use analysis::{AnalysisHost, Target};
 use regex::Regex;
 use serde_json::Value;
+use jsonapi::api::{JsonApiDocument};
 
-use rustdoc::DocData;
+use rustdoc::{DocData, build, Config};
 
 error_chain! {
     foreign_links {
@@ -313,5 +315,43 @@ mod tests {
             },
         ).unwrap_err();
         assert_err!(err, ErrorKind::JsonPointer);
+    }
+
+    #[test]
+    fn json_fmt_test(){
+        let config = Config::new(PathBuf::from("example")).unwrap_or_else(|err| {
+            panic!("Couldn't create the config: {}", err);
+        });
+
+        let result = build(&config, &["json"]);
+
+        if let Err(ref e) = result {
+            panic!("Error: {}", e);
+        }
+
+        let path = Path::new("example/target/doc/data.json");
+
+        let mut file = match File::open(&path) {
+            Err(e) => panic!("couldn't open data.json: {}", e),
+            Ok(file) => file,
+        };
+
+        let mut s = String::new();
+        let result = file.read_to_string(&mut s);
+
+        if let Err(ref e) = result {
+            panic!("Error: {}", e);
+        }
+
+        let result = JsonApiDocument::from_str(&s);
+        let doc = match result{
+            Err(e) => panic!("Error: {}", e),
+            Ok(doc) => doc
+        };
+
+        match doc.validate() {
+            Some(errors) => panic!("Error: {:?}", errors),
+            None => ()
+        }
     }
 }
