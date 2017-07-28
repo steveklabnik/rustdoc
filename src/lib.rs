@@ -197,11 +197,9 @@ impl DocData {
 
         let root_def = host.get_def(root_id)?;
 
-        let name_len = root_def.qualname.len();
         let mut krate = Crate {
             id: root_id,
-            // example:: -> example
-            name: root_def.qualname[..(name_len - 2)].to_string(),
+            name: root_def.qualname.to_string(),
             docs: root_def.docs.clone(),
             metadata: Vec::new(),
         };
