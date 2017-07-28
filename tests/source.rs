@@ -33,13 +33,13 @@ extern crate jsonapi;
 use std::fs::{self, File};
 use std::io::{self, BufReader};
 use std::io::prelude::*;
-use std::path::{Path};
+use std::path::Path;
 use std::process::Command;
 
 use analysis::{AnalysisHost, Target};
 use regex::Regex;
 use serde_json::Value;
-use rustdoc::{DocData};
+use rustdoc::DocData;
 
 error_chain! {
     foreign_links {

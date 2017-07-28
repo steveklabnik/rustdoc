@@ -2,14 +2,14 @@ extern crate rustdoc;
 extern crate jsonapi;
 
 mod validation_tests {
-    use jsonapi::api::{JsonApiDocument};
+    use jsonapi::api::JsonApiDocument;
     use std::fs::File;
     use std::io::Read;
     use std::path::{Path, PathBuf};
     use rustdoc::{build, Config};
 
     #[test]
-    fn json_fmt_test(){
+    fn json_fmt_test() {
         let config = Config::new(PathBuf::from("example")).unwrap_or_else(|err| {
             panic!("Couldn't create the config: {}", err);
         });
@@ -33,9 +33,9 @@ mod validation_tests {
             panic!("Error: {}", err);
         });
 
-        match  doc.validate() {
+        match doc.validate() {
             Some(errors) => panic!("Error: {:?}", errors),
-            None => ()
+            None => (),
         }
     }
 }
