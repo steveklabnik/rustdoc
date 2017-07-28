@@ -176,7 +176,7 @@ fn parse_test(line: &str) -> Option<Result<TestCase>> {
         static ref DIRECTIVE_RE: Regex =
             Regex::new(r"^[[:^alnum:]]*@(?P<directive>[a-z]+)").unwrap();
         static ref HAS_RE: Regex =
-            Regex::new(r"@(?P<negated>!)?has (?P<pointer>[[:alnum:]/]+) '(?P<match>.+)'").unwrap();
+            Regex::new(r"@(?P<negated>!)?has (?P<pointer>[[:alnum:]/_]+) '(?P<match>.+)'").unwrap();
     }
 
     if let Some(caps) = DIRECTIVE_RE.captures(line) {
