@@ -27,11 +27,12 @@ extern crate serde_json;
 
 extern crate regex;
 extern crate rls_analysis as analysis;
+extern crate shlex;
 extern crate tempdir;
 
 use std::fs::{self, File};
-use std::io::{self, BufReader};
 use std::io::prelude::*;
+use std::io::{self, BufReader};
 use std::path::Path;
 use std::process::Command;
 
@@ -40,6 +41,11 @@ use regex::Regex;
 use serde_json::Value;
 
 use rustdoc::DocData;
+
+lazy_static! {
+    /// Matches valid JSON pointers.
+    static ref POINTER_RE: Regex = Regex::new(r"^(/(([^/~])|(~[01]))*)*$").unwrap();
+}
 
 error_chain! {
     foreign_links {
@@ -174,35 +180,50 @@ fn check(source_file: &Path, host: &AnalysisHost) -> Result<()> {
 fn parse_test(line: &str) -> Option<Result<TestCase>> {
     lazy_static! {
         static ref DIRECTIVE_RE: Regex =
-            Regex::new(r"^[[:^alnum:]]*@(?P<directive>[a-z]+)").unwrap();
-        static ref HAS_RE: Regex =
-            Regex::new(r"@(?P<negated>!)?has (?P<pointer>[[:alnum:]/_]+) '(?P<match>.+)'").unwrap();
+            Regex::new(r"(?x)
+                ^[[:^alnum:]]*@(?P<negated>!)?(?P<directive>[a-z]+)
+                \s+
+                (?P<args>.*)$
+            ").unwrap();
     }
 
     if let Some(caps) = DIRECTIVE_RE.captures(line) {
         let directive = &caps["directive"];
-        match directive {
-            "has" => {
-                if let Some(caps) = HAS_RE.captures(line) {
-                    let regex = match Regex::new(&caps["match"]) {
-                        Ok(regex) => regex,
-                        Err(err) => return Some(Err(err.into())),
-                    };
-                    let pointer = caps["pointer"].to_owned();
-                    return Some(Ok(TestCase {
-                        pointer,
-                        regex,
-                        negated: caps.name("negated").is_some(),
-                    }));
-                }
-            }
-            _ => (),
-        }
-
-        let err = ErrorKind::InvalidDirective(directive.into());
-        Some(Err(err.into()))
+        let result = parse_directive(directive, &caps["args"], caps.name("negated").is_some())
+            .chain_err(|| ErrorKind::InvalidDirective(line.into()));
+        Some(result)
     } else {
         None
+    }
+}
+
+fn parse_directive(directive: &str, args: &str, negated: bool) -> Result<TestCase> {
+    let args = match shlex::split(args) {
+        Some(args) => args,
+        None => bail!("Could not split directive arguments"),
+    };
+
+    match directive {
+        "has" => {
+            if args.len() != 2 {
+                bail!("Not enough arguments");
+            }
+
+            let pointer = &args[0];
+            if !POINTER_RE.is_match(pointer) {
+                bail!("Invalid JSON pointer syntax");
+            }
+            let regex = Regex::new(&args[1])?;
+
+            Ok(TestCase {
+                pointer: pointer.to_owned(),
+                regex,
+                negated,
+            })
+        }
+        _ => {
+            bail!("Unknown directive");
+        }
     }
 }
 
@@ -246,6 +267,15 @@ mod tests {
     }
 
     #[test]
+    fn pointer_syntax() {
+        assert!(POINTER_RE.is_match("/test"));
+        assert!(POINTER_RE.is_match("/included/0/attributes"));
+        assert!(POINTER_RE.is_match("/attributes/ぁ/Ω/~0~1/"));
+        assert!(!POINTER_RE.is_match("non-pointer"));
+        assert!(!POINTER_RE.is_match("/inval~~id/pointer"));
+    }
+
+    #[test]
     fn parse_test() {
         let test = super::parse_test("// @has /test 'value'").unwrap().unwrap();
         assert_eq!(test.pointer, "/test");
@@ -259,12 +289,24 @@ mod tests {
         assert_eq!(test.regex.as_str(), "a module");
         assert!(!test.negated);
 
+        let test = super::parse_test("// @has /attributes/ぁ/Ω/~0~1/ 'special characters'")
+            .unwrap()
+            .unwrap();
+        assert_eq!(test.pointer, "/attributes/ぁ/Ω/~0~1/");
+        assert_eq!(test.regex.as_str(), "special characters");
+        assert!(!test.negated);
+
         assert!(super::parse_test(r#"fn main() { println!("no test case"); }"#).is_none());
 
         let err = super::parse_test("// @has /test '['").unwrap().unwrap_err();
-        assert_err!(err, ErrorKind::Regex);
+        assert_err!(err, ErrorKind::InvalidDirective);
 
         let err = super::parse_test("// @garbage /test 'abc'")
+            .unwrap()
+            .unwrap_err();
+        assert_err!(err, ErrorKind::InvalidDirective);
+
+        let err = super::parse_test("// @has /inval~~id 'pointer'")
             .unwrap()
             .unwrap_err();
         assert_err!(err, ErrorKind::InvalidDirective);
