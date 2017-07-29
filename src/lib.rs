@@ -11,7 +11,7 @@ pub use error::{Error, ErrorKind};
 use error::*;
 
 pub mod item;
-use item::item::Metadata;
+use item::Metadata;
 
 use std::collections::HashMap;
 use std::fs::{self, File, DirBuilder};
