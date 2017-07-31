@@ -54,7 +54,7 @@ impl Config {
 pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
     generate_analysis(config)?;
 
-    let package_name = package_name_from_manifest_path(&config.manifest_path)?;
+    let package_name = crate_name_from_manifest_path(&config.manifest_path)?;
     let data = DocData::new(&config.host, &package_name)?;
 
     let output_path = config.manifest_path.join("target/doc");
@@ -95,7 +95,7 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
     Ok(())
 }
 
-fn package_name_from_manifest_path(manifest_path: &Path) -> Result<String> {
+fn crate_name_from_manifest_path(manifest_path: &Path) -> Result<String> {
     let mut command = Command::new("cargo");
 
     command
@@ -119,10 +119,38 @@ fn package_name_from_manifest_path(manifest_path: &Path) -> Result<String> {
 
     let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
 
-    match json["packages"][0]["name"] {
-        serde_json::Value::String(ref name) => Ok(name.clone()),
-        _ => Err(ErrorKind::Json("cargo metadata").into()),
+    let targets = match json["packages"][0]["targets"].as_array() {
+        Some(targets) => targets,
+        None => return Err(ErrorKind::Json("targets is not an array").into()),
+    };
+
+    for target in targets {
+        let crate_types = match target["crate_types"].as_array() {
+            Some(crate_types) => crate_types,
+            None => return Err(ErrorKind::Json("crate types is not an array").into()),
+        };
+
+        for crate_type in crate_types {
+
+            let type_ = match crate_type.as_str() {
+                Some(t) => t,
+                None => {
+                    return Err(
+                        ErrorKind::Json("crate type contents are not a string").into(),
+                    )
+                }
+            };
+
+            if type_ == "lib" {
+                match target["name"].as_str() {
+                    Some(name) => return Ok(name.to_string()),
+                    None => return Err(ErrorKind::Json("target name is not a string").into()),
+                }
+            }
+        }
     }
+
+    Err(ErrorKind::Json("cargo metadata").into())
 }
 
 fn create_asset_file(name: &str, path: &Path, data: &str) -> Result<()> {
@@ -186,13 +214,13 @@ pub struct DocData {
 }
 
 impl DocData {
-    pub fn new(host: &AnalysisHost, package_name: &str) -> Result<DocData> {
+    pub fn new(host: &AnalysisHost, crate_name: &str) -> Result<DocData> {
         let roots = host.def_roots()?;
 
-        let id = roots.iter().find(|&&(_, ref name)| name == &package_name);
+        let id = roots.iter().find(|&&(_, ref name)| name == &crate_name);
         let root_id = match id {
             Some(&(id, _)) => id,
-            _ => return Err(ErrorKind::CrateErr("example").into()),
+            _ => return Err(ErrorKind::CrateErr(crate_name.to_string()).into()),
         };
 
         let root_def = host.get_def(root_id)?;
