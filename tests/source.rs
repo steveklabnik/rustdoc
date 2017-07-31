@@ -28,6 +28,7 @@ extern crate serde_json;
 extern crate regex;
 extern crate rls_analysis as analysis;
 extern crate tempdir;
+extern crate jsonapi;
 
 use std::fs::{self, File};
 use std::io::{self, BufReader};
@@ -38,7 +39,6 @@ use std::process::Command;
 use analysis::{AnalysisHost, Target};
 use regex::Regex;
 use serde_json::Value;
-
 use rustdoc::DocData;
 
 error_chain! {
@@ -231,7 +231,7 @@ fn run_test(json: &serde_json::Value, case: TestCase) -> Result<()> {
 // Tests generated from the files in tests/source
 include!(concat!(env!("OUT_DIR"), "/source_generated.rs"));
 
-mod tests {
+mod source_tests {
     #![cfg_attr(feature = "cargo-clippy", allow(trivial_regex))]
 
     use super::*;
