@@ -1,5 +1,4 @@
 //! Code used to serialize crate data to JSON. We use a subset of the JSON-API spec.
-//!
 
 use std::collections::HashMap;
 
@@ -22,7 +21,7 @@ pub struct Documentation<'a> {
 #[derive(Serialize, Debug)]
 pub struct Document<'a> {
     #[serde(rename = "type")]
-    type_: &'a str,
+    ty: &'a str,
     id: &'a str,
     attributes: HashMap<&'a str, &'a str>,
     relationships: Option<HashMap<&'a str, HashMap<&'a str, Vec<Data<'a>>>>>,
@@ -31,7 +30,7 @@ pub struct Document<'a> {
 #[derive(Serialize, Debug)]
 pub struct Data<'a> {
     #[serde(rename = "type")]
-    type_: &'a str,
+    ty: &'a str,
     id: &'a str,
 }
 
@@ -57,15 +56,15 @@ impl<'a> Documentation<'a> {
 impl<'a> Document<'a> {
     pub fn new() -> Self {
         Self {
-            type_: "",
+            ty: "",
             id: "",
             attributes: HashMap::new(),
             relationships: None,
         }
     }
 
-    pub fn type_(mut self, t: &'a str) -> Self {
-        self.type_ = t;
+    pub fn ty(mut self, t: &'a str) -> Self {
+        self.ty = t;
         self
     }
 
@@ -79,7 +78,7 @@ impl<'a> Document<'a> {
         self
     }
 
-    pub fn relationships(&mut self, type_: &'a str, data: Vec<Data<'a>>) {
+    pub fn relationships(&mut self, ty: &'a str, data: Vec<Data<'a>>) {
         // The data_map stuff won't work if things under modules contains
         // multiple different things
         match self.relationships {
@@ -88,14 +87,14 @@ impl<'a> Document<'a> {
                 data_map.insert("data", data);
 
                 let mut relationships = HashMap::with_capacity(METADATA_SIZE);
-                relationships.insert(type_, data_map);
+                relationships.insert(ty, data_map);
                 self.relationships = Some(relationships);
             }
             Some(ref mut relationships) => {
                 let mut data_map = HashMap::with_capacity(DATA_SIZE);
                 data_map.insert("data", data);
 
-                relationships.insert(type_, data_map);
+                relationships.insert(ty, data_map);
             }
         }
     }
@@ -103,11 +102,11 @@ impl<'a> Document<'a> {
 
 impl<'a> Data<'a> {
     pub fn new() -> Self {
-        Self { type_: "", id: "" }
+        Self { ty: "", id: "" }
     }
 
-    pub fn type_(mut self, t: &'a str) -> Self {
-        self.type_ = t;
+    pub fn ty(mut self, t: &'a str) -> Self {
+        self.ty = t;
         self
     }
 

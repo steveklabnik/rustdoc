@@ -137,7 +137,7 @@ fn crate_name_from_manifest_path(manifest_path: &Path) -> Result<String> {
 
         for crate_type in crate_types {
 
-            let type_ = match crate_type.as_str() {
+            let ty = match crate_type.as_str() {
                 Some(t) => t,
                 None => {
                     return Err(
@@ -146,7 +146,7 @@ fn crate_name_from_manifest_path(manifest_path: &Path) -> Result<String> {
                 }
             };
 
-            if type_ == "lib" {
+            if ty == "lib" {
                 match target["name"].as_str() {
                     Some(name) => return Ok(name.to_string()),
                     None => return Err(ErrorKind::Json("target name is not a string").into()),
@@ -302,19 +302,19 @@ impl DocData {
                 } => {
 
                     if let Some(ref mut vec) = relationships.get_mut("modules") {
-                        vec.push(Data::new().type_("module").id(&qualified_name));
+                        vec.push(Data::new().ty("module").id(&qualified_name));
                     }
 
                     // We do this to avoid borrow check errors regarding two mutable references
                     if let None = relationships.get("modules") {
                         relationships.insert(
                             "modules",
-                            vec![Data::new().type_("module").id(&qualified_name)],
+                            vec![Data::new().ty("module").id(&qualified_name)],
                         );
                     }
 
                     let module = Document::new()
-                        .type_("module")
+                        .ty("module")
                         .id(&qualified_name)
                         .attributes("name", name)
                         .attributes("docs", docs);
@@ -328,7 +328,7 @@ impl DocData {
         let len = self.name.len();
 
         let mut data_document = Document::new()
-            .type_("crate")
+            .ty("crate")
             .id(&self.name[..(len - 2)])
             .attributes("docs", &self.docs);
 
