@@ -148,7 +148,19 @@ fn generate_source_tests() -> Result<()> {
                 let tempdir = TempDir::new("rustdoc-test").unwrap();
                 let source_file = env::current_dir().unwrap().join(#source_file_path);
                 let host = generate_analysis(&source_file, tempdir.path()).unwrap();
-                check(&source_file, &host).unwrap();
+                if let Err(err) = check(&source_file, &host) {
+                    println!("error: {}", err);
+
+                    for err in err.iter().skip(1) {
+                        println!("caused by: {}", err);
+                    }
+
+                    if let Some(backtrace) = err.backtrace() {
+                        println!("backtrace: {:?}", backtrace);
+                    }
+
+                    panic!();
+                }
             }
         };
 
