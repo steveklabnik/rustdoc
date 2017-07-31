@@ -40,5 +40,7 @@ pub fn crate_name_from_metadata(metadata: &serde_json::Value) -> Result<String> 
         }
     }
 
-    Err(ErrorKind::Json("cargo metadata").into())
+    Err(
+        ErrorKind::Json("cargo metadata contained no targets").into(),
+    )
 }
