@@ -2,29 +2,26 @@
 
 #![warn(missing_docs)]
 
-extern crate rls_analysis as analysis;
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_json;
 #[macro_use]
 extern crate error_chain;
+#[macro_use]
+extern crate lazy_static;
+#[macro_use]
+extern crate serde_derive;
+
 extern crate indicatif;
 extern crate rayon;
+extern crate rls_analysis as analysis;
+extern crate serde;
+extern crate serde_json;
 
+pub mod assets;
 pub mod error;
-pub use error::{Error, ErrorKind};
-
-use error::*;
-
 pub mod item;
-use item::Metadata;
-
 pub mod json;
-use json::*;
 
 use std::collections::HashMap;
-use std::fs::{self, File, DirBuilder};
+use std::fs::{self, File};
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -33,6 +30,12 @@ use analysis::AnalysisHost;
 use analysis::raw::DefKind;
 use indicatif::ProgressBar;
 use rayon::prelude::*;
+
+use error::*;
+use item::Metadata;
+use json::*;
+
+pub use error::{Error, ErrorKind};
 
 /// A structure that contains various fields that hold data in order to generate doc output.
 ///
@@ -45,19 +48,6 @@ use rayon::prelude::*;
 pub struct Config {
     manifest_path: PathBuf,
     host: analysis::AnalysisHost,
-    assets: Vec<Asset>,
-}
-
-/// Static assets compiled into the binary so we get a single executable. These are dynamically
-/// generated with the build script based off of items in the `frontend/dist` folder.
-///
-/// ## Fields
-///
-/// - `name`: Name of the file loaded into the binary
-/// - `contents`: Content of the files being loaded into the binary
-struct Asset {
-    name: &'static str,
-    contents: &'static str,
 }
 
 impl Config {
@@ -70,12 +60,9 @@ impl Config {
     pub fn new(manifest_path: PathBuf) -> Result<Config> {
         let host = analysis::AnalysisHost::new(analysis::Target::Debug);
 
-        let assets = include!("asset.in");
-
         Ok(Config {
             manifest_path,
             host,
-            assets,
         })
     }
 }
@@ -121,8 +108,8 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
         assets_path.push("assets");
         fs::create_dir_all(&assets_path)?;
 
-        for asset in &config.assets {
-            create_asset_file(asset.name, &output_path, asset.contents)?;
+        for asset in assets::ASSETS.iter() {
+            assets::create_asset_file(asset.name, &output_path, asset.contents)?;
         }
 
         spinner.finish_with_message("Copying Assets: Done");
@@ -192,31 +179,6 @@ fn crate_name_from_manifest_path(manifest_path: &Path) -> Result<String> {
     }
 
     Err(ErrorKind::Json("cargo metadata").into())
-}
-
-/// Output an asset file to a given directory
-///
-/// ## Arguments
-///
-/// - name: Name of the asset file
-/// - path: Path to the directory to write the file out to
-/// - data: Data to be written to the file
-fn create_asset_file(name: &str, path: &Path, data: &str) -> Result<()> {
-    let mut asset_path = path.to_path_buf();
-    asset_path.push(name);
-
-    // the name may contain one or more directories. we need to create them before trying to create
-    // a file
-    if let Some(parent) = asset_path.parent() {
-        if parent != path {
-            DirBuilder::new().recursive(true).create(parent)?;
-        }
-    }
-
-    let mut file = File::create(asset_path)?;
-    file.write_all(data.as_bytes())?;
-
-    Ok(())
 }
 
 /// Generate save analysis data of a crate to be used later by the RLS library later

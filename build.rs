@@ -1,4 +1,5 @@
 #![recursion_limit = "1024"]
+
 #[macro_use]
 extern crate error_chain;
 #[macro_use]
@@ -29,9 +30,6 @@ const SOURCE_TEST_DIR: &str = "tests/source";
 
 // Location of the dist folder
 const DIST: &str = "frontend/dist/";
-
-// Where to write the Assets out to
-const ASSETOUT: &str = "src/asset.in";
 
 fn run() -> Result<()> {
     let source_thread = thread::spawn(|| generate_source_tests());
@@ -85,12 +83,14 @@ fn acquire_assets() -> Result<Vec<Asset>> {
 /// imported using the include!() macro for the `Config` struct
 fn write_asset_file() -> Result<()> {
     let assets = acquire_assets()?;
-    let mut writer = BufWriter::new(File::create(ASSETOUT)?);
-    writer.write_all(b"vec![")?;
-    for i in assets {
-        writer.write_fmt(format_args!("{},", i))?;
+    let asset_out = Path::new(&env::var("OUT_DIR").unwrap()).join("asset.in");
+
+    let mut writer = BufWriter::new(File::create(asset_out)?);
+    write!(writer, "vec![")?;
+    for asset in assets {
+        write!(writer, "{},", asset)?;
     }
-    writer.write_all(b"]\n")?;
+    write!(writer, "]")?;
 
     Ok(())
 }
@@ -104,21 +104,26 @@ pub struct Asset {
 // an asset would look like for the actual program into the asset.in file.
 impl fmt::Display for Asset {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut buffer = String::from("\nAsset { \nname: \"");
-
         // We know this will give the proper name so we can do this to get the
         // proper name for the asset without the rest of the beginning path
-        buffer.push_str(&self.path
+        let name = self.path
             .split(DIST)
             .skip(1)
             .collect::<Vec<&str>>()
             .pop()
-            .unwrap());
+            .unwrap();
 
-        buffer.push_str("\", \ncontents: include_str!(\"../");
-        buffer.push_str(&self.path);
-        buffer.push_str("\") \n}");
-        write!(f, "{}", &buffer)
+        let asset =
+            format!(
+            r#"Asset {{
+                name: "{name}",
+                contents: include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/{path}")),
+            }}"#,
+            name = name,
+            path = self.path,
+        );
+
+        write!(f, "{}", asset)
     }
 }
 
