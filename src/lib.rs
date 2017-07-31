@@ -1,5 +1,7 @@
-extern crate jsonapi;
 extern crate rls_analysis as analysis;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
 extern crate serde_json;
 #[macro_use]
 extern crate error_chain;
@@ -12,6 +14,9 @@ use error::*;
 
 pub mod item;
 use item::Metadata;
+
+pub mod json;
+use json::*;
 
 use std::collections::HashMap;
 use std::fs::{self, File, DirBuilder};
@@ -210,7 +215,10 @@ fn generate_analysis(config: &Config) -> Result<()> {
 
 #[derive(Debug)]
 pub struct DocData {
-    krate: Crate,
+    id: analysis::Id,
+    name: String,
+    docs: String,
+    metadata: Vec<Metadata>,
 }
 
 impl DocData {
@@ -225,7 +233,7 @@ impl DocData {
 
         let root_def = host.get_def(root_id)?;
 
-        let mut krate = Crate {
+        let mut doc_data = DocData {
             id: root_id,
             name: root_def.qualname.to_string(),
             docs: root_def.docs.clone(),
@@ -255,7 +263,7 @@ impl DocData {
         for def in defs.into_iter() {
             match def.kind {
                 DefKind::Mod => {
-                    krate.metadata.push(Metadata::Module {
+                    doc_data.metadata.push(Metadata::Module {
                         qualified_name: def.qualname,
                         name: def.name,
                         docs: def.docs,
@@ -277,91 +285,61 @@ impl DocData {
             }
         }
 
-        Ok(DocData { krate })
+        Ok(doc_data)
     }
 
     pub fn to_json(&self) -> Result<String> {
-        use jsonapi::api::*;
 
-        let mut document = JsonApiDocument::default();
+        let mut included: Vec<Document> = Vec::new();
+        let mut relationships: HashMap<&str, Vec<Data>> = HashMap::with_capacity(METADATA_SIZE);
 
-        let mut map = HashMap::new();
-        map.insert(
-            String::from("docs"),
-            serde_json::Value::String(self.krate.docs.clone()),
-        );
-
-        let mut relationships = HashMap::new();
-
-        let mut relationship = Relationship {
-            data: IdentifierData::Multiple(Vec::new()),
-            links: None,
-        };
-
-        //TODO this is bad, use real option handling in the loop
-        document.included = Some(Vec::new());
-
-        for item in self.krate.metadata.iter() {
+        for item in self.metadata.iter() {
             match item {
                 &Metadata::Module {
                     ref qualified_name,
                     ref name,
                     ref docs,
                 } => {
-                    if let IdentifierData::Multiple(ref mut v) = relationship.data {
-                        v.push(ResourceIdentifier {
-                            _type: String::from("module"),
-                            id: qualified_name.clone(),
-                        });
-                    };
-                    let mut map = HashMap::new();
-                    map.insert(
-                        String::from("name"),
-                        serde_json::Value::String(name.clone()),
-                    );
-                    map.insert(
-                        String::from("docs"),
-                        serde_json::Value::String(docs.clone()),
-                    );
 
-                    let module = Resource {
-                        _type: String::from("module"),
-                        id: qualified_name.clone(),
-                        attributes: map,
-                        links: None,
-                        meta: None,
-                        relationships: None,
-                    };
+                    if let Some(ref mut vec) = relationships.get_mut("modules") {
+                        vec.push(Data::new().type_("module").id(&qualified_name));
+                    }
 
-                    document.included.as_mut().map(|v| v.push(module));
+                    // We do this to avoid borrow check errors regarding two mutable references
+                    if let None = relationships.get("modules") {
+                        relationships.insert(
+                            "modules",
+                            vec![Data::new().type_("module").id(&qualified_name)],
+                        );
+                    }
+
+                    let module = Document::new()
+                        .type_("module")
+                        .id(&qualified_name)
+                        .attributes("name", name)
+                        .attributes("docs", docs);
+
+                    included.push(module);
                 }
                 _ => {}
             }
         }
 
-        relationships.insert(String::from("modules"), relationship);
+        let len = self.name.len();
 
-        let len = self.krate.name.len();
-        let krate = Resource {
-            _type: String::from("crate"),
-            // example:: -> example
-            id: self.krate.name[..(len - 2)].to_string(),
-            attributes: map,
-            links: None,
-            meta: None,
-            relationships: Some(relationships),
-        };
+        let mut data_document = Document::new()
+            .type_("crate")
+            .id(&self.name[..(len - 2)])
+            .attributes("docs", &self.docs);
 
-        document.data = Some(PrimaryData::Single(Box::new(krate)));
+        for (ty, data) in relationships.into_iter() {
+            data_document.relationships(ty, data);
+        }
 
-        Ok(serde_json::to_string(&document)?)
+        Ok(serde_json::to_string(
+            &Documentation::new().data(data_document).included(
+                included,
+            ),
+        )?)
     }
-}
-
-#[derive(Debug)]
-struct Crate {
-    id: analysis::Id,
-    name: String,
-    docs: String,
-    metadata: Vec<Metadata>,
 }
