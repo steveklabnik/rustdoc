@@ -12,11 +12,10 @@ pub const METADATA_SIZE: usize = 14;
 /// is data. As we might add more this number should increase
 const DATA_SIZE: usize = 1;
 
-#[derive(Serialize, Debug)]
 /// The data structure used to serialize crate documentation data to JSON for consumption by the
 /// front end. When fully serialized the data looks something like:
 ///
-/// ```ignore, json
+/// ```json
 /// {
 ///     "data": {
 ///         "type": "crate",
@@ -49,25 +48,26 @@ const DATA_SIZE: usize = 1;
 ///```
 ///
 /// ## Fields
+///
 /// - `data`: The top level crate information and documentation
 /// - `included`: The rest of the crate information and documentation
-///
+#[derive(Serialize, Debug)]
 pub struct Documentation<'a> {
     data: Option<Document<'a>>,
     included: Option<Vec<Document<'a>>>,
 }
 
-#[derive(Serialize, Debug)]
 /// A sub type of the `Documentation` struct. It contains the majority of the data. It can be used
 /// for both the `data` and `included` field in the serialized JSON.
 ///
 /// ## Fields
+///
 /// - `ty`: The type of the the item (e.g. "crate", "function", "enum", etc.)
 /// - `id`: The unique identifier associated with this item
 /// - `attributes`: The attributes associated with the item like documentation or it's name
 /// - `relationships`: An optional field used to show the relationship between the crate to the
 ///   otheritems in the crate
-///
+#[derive(Serialize, Debug)]
 pub struct Document<'a> {
     #[serde(rename = "type")]
     ty: &'a str,
@@ -76,13 +76,13 @@ pub struct Document<'a> {
     relationships: Option<HashMap<&'a str, HashMap<&'a str, Vec<Data<'a>>>>>,
 }
 
-#[derive(Serialize, Debug)]
 /// Used to populate the `relationships` `data` field in the serialized JSON
 ///
 /// ## Fields
+///
 /// - `ty`: The type of the the item (e.g. "crate", "function", "enum", etc.)
 /// - `id`: The unique identifier associated with this item
-///
+#[derive(Serialize, Debug)]
 pub struct Data<'a> {
     #[serde(rename = "type")]
     ty: &'a str,
