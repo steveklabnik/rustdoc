@@ -1,3 +1,7 @@
+#![warn(missing_docs)]
+
+//! Code used to drive the creation of documentation for Rust Crates.
+
 extern crate rustdoc;
 extern crate clap;
 
