@@ -14,6 +14,7 @@ extern crate serde;
 extern crate serde_json;
 
 pub mod assets;
+pub mod cargo;
 pub mod error;
 pub mod item;
 pub mod json;
@@ -78,8 +79,8 @@ impl Config {
 pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
     generate_analysis(config)?;
 
-    let package_name = crate_name_from_manifest_path(&config.manifest_path)?;
-    let data = DocData::new(&config.host, &package_name)?;
+    let crate_name = crate_name_from_manifest_path(&config.manifest_path)?;
+    let data = DocData::new(&config.host, &crate_name)?;
 
     let output_path = config.manifest_path.join("target/doc");
     fs::create_dir_all(&output_path)?;
@@ -146,40 +147,8 @@ fn crate_name_from_manifest_path(manifest_path: &Path) -> Result<String> {
         );
     }
 
-    let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
-
-    let targets = match json["packages"][0]["targets"].as_array() {
-        Some(targets) => targets,
-        None => return Err(ErrorKind::Json("targets is not an array").into()),
-    };
-
-    for target in targets {
-        let crate_types = match target["crate_types"].as_array() {
-            Some(crate_types) => crate_types,
-            None => return Err(ErrorKind::Json("crate types is not an array").into()),
-        };
-
-        for crate_type in crate_types {
-
-            let ty = match crate_type.as_str() {
-                Some(t) => t,
-                None => {
-                    return Err(
-                        ErrorKind::Json("crate type contents are not a string").into(),
-                    )
-                }
-            };
-
-            if ty == "lib" {
-                match target["name"].as_str() {
-                    Some(name) => return Ok(name.to_string()),
-                    None => return Err(ErrorKind::Json("target name is not a string").into()),
-                }
-            }
-        }
-    }
-
-    Err(ErrorKind::Json("cargo metadata").into())
+    let metadata = serde_json::from_slice(&output.stdout)?;
+    cargo::crate_name_from_metadata(&metadata)
 }
 
 /// Generate save analysis data of a crate to be used later by the RLS library later
