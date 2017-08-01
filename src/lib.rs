@@ -23,7 +23,7 @@ pub mod json;
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::prelude::*;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 
 use analysis::AnalysisHost;
@@ -80,7 +80,7 @@ impl Config {
 pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
     generate_analysis(config)?;
 
-    let crate_name = crate_name_from_manifest_path(&config.manifest_path)?;
+    let crate_name = cargo::crate_name_from_manifest_path(&config.manifest_path)?;
     let data = DocData::new(&config.host, &crate_name)?;
 
     let output_path = config.manifest_path.join("target/doc");
@@ -119,37 +119,6 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
     }
 
     Ok(())
-}
-
-/// Grab the name of the binary or library from it's `Cargo.toml` file.
-///
-/// ## Arguments
-///
-/// - manifest_path: The path to the location of `Cargo.toml` of the crate being documented
-fn crate_name_from_manifest_path(manifest_path: &Path) -> Result<String> {
-    let mut command = Command::new("cargo");
-
-    command
-        .arg("metadata")
-        .arg("--manifest-path")
-        .arg(manifest_path.join("Cargo.toml"))
-        .arg("--no-deps")
-        .arg("--format-version")
-        .arg("1");
-
-    let output = command.output()?;
-
-    if !output.status.success() {
-        return Err(
-            ErrorKind::Cargo(
-                output.status,
-                String::from_utf8_lossy(&output.stderr).into_owned(),
-            ).into(),
-        );
-    }
-
-    let metadata = serde_json::from_slice(&output.stdout)?;
-    cargo::crate_name_from_metadata(&metadata)
 }
 
 /// Generate save analysis data of a crate to be used later by the RLS library later
