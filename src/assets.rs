@@ -13,7 +13,7 @@ pub struct Asset {
     pub name: &'static str,
 
     /// Contents of the file
-    pub contents: &'static str,
+    pub contents: &'static [u8],
 }
 
 /// Output an asset file to a given directory
@@ -23,7 +23,7 @@ pub struct Asset {
 /// - name: Name of the asset file
 /// - path: Path to the directory to write the file out to
 /// - data: Data to be written to the file
-pub fn create_asset_file(name: &str, path: &Path, data: &str) -> Result<()> {
+pub fn create_asset_file(name: &str, path: &Path, data: &[u8]) -> Result<()> {
     let mut asset_path = path.to_path_buf();
     asset_path.push(name);
 
@@ -36,7 +36,7 @@ pub fn create_asset_file(name: &str, path: &Path, data: &str) -> Result<()> {
     }
 
     let mut file = File::create(asset_path)?;
-    file.write_all(data.as_bytes())?;
+    file.write_all(data)?;
 
     Ok(())
 }
