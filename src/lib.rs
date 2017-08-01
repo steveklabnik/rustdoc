@@ -158,11 +158,17 @@ fn crate_name_from_manifest_path(manifest_path: &Path) -> Result<String> {
 /// - config: Contains data for what needs to be output or used. In this case the path to the
 ///           `Cargo.toml` file
 fn generate_analysis(config: &Config) -> Result<()> {
-    let mut command = Command::new("cargo");
     let manifest_path = &config.manifest_path;
 
+    // FIXME: Here we assume that we are documenting a library. This could be wrong, but it's the
+    // common case, and it ensures that we are documenting the right target in the case that the
+    // crate contains a binary and a library with the same name.
+    //
+    // Maybe we could use Cargo.toml's `doc = false` attribute to figure out the right target?
+    let mut command = Command::new("cargo");
     command
         .arg("check")
+        .arg("--lib")
         .arg("--manifest-path")
         .arg(manifest_path.join("Cargo.toml"))
         .env("RUSTFLAGS", "-Z save-analysis")
