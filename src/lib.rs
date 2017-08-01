@@ -24,7 +24,6 @@ use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::prelude::*;
 use std::path::PathBuf;
-use std::process::Command;
 
 use analysis::AnalysisHost;
 use analysis::raw::DefKind;
@@ -78,7 +77,7 @@ impl Config {
 /// - config: The `Config` struct that contains the data needed to generate the documentation
 /// - artifacts: A slice containing what assets should be output at the end
 pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
-    generate_analysis(config)?;
+    generate_and_load_analysis(config)?;
 
     let crate_name = cargo::crate_name_from_manifest_path(&config.manifest_path)?;
     let data = DocData::new(&config.host, &crate_name)?;
@@ -121,44 +120,25 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
     Ok(())
 }
 
-/// Generate save analysis data of a crate to be used later by the RLS library later
+/// Generate save analysis data of a crate to be used later by the RLS library later and load it
+/// into the analysis host.
 ///
 /// ## Arguments:
 ///
 /// - config: Contains data for what needs to be output or used. In this case the path to the
 ///           `Cargo.toml` file
-fn generate_analysis(config: &Config) -> Result<()> {
+fn generate_and_load_analysis(config: &Config) -> Result<()> {
     let manifest_path = &config.manifest_path;
-
-    // FIXME: Here we assume that we are documenting a library. This could be wrong, but it's the
-    // common case, and it ensures that we are documenting the right target in the case that the
-    // crate contains a binary and a library with the same name.
-    //
-    // Maybe we could use Cargo.toml's `doc = false` attribute to figure out the right target?
-    let mut command = Command::new("cargo");
-    command
-        .arg("check")
-        .arg("--lib")
-        .arg("--manifest-path")
-        .arg(manifest_path.join("Cargo.toml"))
-        .env("RUSTFLAGS", "-Z save-analysis")
-        .env("CARGO_TARGET_DIR", manifest_path.join("target/rls"));
 
     let spinner = ProgressBar::new_spinner();
     spinner.enable_steady_tick(50);
     spinner.set_message("Generating save analysis data: In Progress");
 
-    let output = command.output()?;
-
-    if !output.status.success() {
+    if let Err(e) = cargo::generate_analysis(manifest_path) {
         spinner.finish_with_message("Generating save analysis data: Error");
-        return Err(
-            ErrorKind::Cargo(
-                output.status,
-                String::from_utf8_lossy(&output.stderr).into_owned(),
-            ).into(),
-        );
+        return Err(e);
     }
+
     spinner.finish_with_message("Generating save analysis data: Done");
 
     let spinner = ProgressBar::new_spinner();

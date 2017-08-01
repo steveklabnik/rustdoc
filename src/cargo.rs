@@ -7,6 +7,40 @@ use serde_json;
 
 use error::*;
 
+/// Invoke cargo to generate the save-analysis data for the crate being documented.
+///
+/// ## Arguments
+///
+/// - manifest_path: The path containing the `Cargo.toml` of the crate
+pub fn generate_analysis(manifest_path: &Path) -> Result<()> {
+    // FIXME: Here we assume that we are documenting a library. This could be wrong, but it's the
+    // common case, and it ensures that we are documenting the right target in the case that the
+    // crate contains a binary and a library with the same name.
+    //
+    // Maybe we could use Cargo.toml's `doc = false` attribute to figure out the right target?
+    let mut command = Command::new("cargo");
+    command
+        .arg("check")
+        .arg("--lib")
+        .arg("--manifest-path")
+        .arg(manifest_path.join("Cargo.toml"))
+        .env("RUSTFLAGS", "-Z save-analysis")
+        .env("CARGO_TARGET_DIR", manifest_path.join("target/rls"));
+
+    let output = command.output()?;
+
+    if !output.status.success() {
+        return Err(
+            ErrorKind::Cargo(
+                output.status,
+                String::from_utf8_lossy(&output.stderr).into_owned(),
+            ).into(),
+        );
+    }
+
+    Ok(())
+}
+
 /// Grab the name of the binary or library from it's `Cargo.toml` file.
 ///
 /// ## Arguments
