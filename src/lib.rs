@@ -10,6 +10,7 @@ extern crate serde_json;
 #[macro_use]
 extern crate error_chain;
 extern crate indicatif;
+extern crate rayon;
 
 pub mod error;
 pub use error::{Error, ErrorKind};
@@ -31,6 +32,7 @@ use std::process::Command;
 use analysis::AnalysisHost;
 use analysis::raw::DefKind;
 use indicatif::ProgressBar;
+use rayon::prelude::*;
 
 /// A structure that contains various fields that hold data in order to generate doc output.
 ///
@@ -302,22 +304,22 @@ impl DocData {
             metadata: Vec::new(),
         };
 
-        // TODO: https://github.com/steveklabnik/rustdoc/issues/70
         fn recur(id: &analysis::Id, host: &AnalysisHost) -> Vec<analysis::Def> {
-            let defs_and_ids = host.for_each_child_def(*id, |id, def| (id, def.clone()))
-                .unwrap();
+            let mut ids = Vec::new();
+            let mut defs = host.for_each_child_def(*id, |id, def| {
+                ids.push(id);
+                def.clone()
+            }).unwrap();
 
-            let mut v = Vec::new();
-
-            for (id, def) in defs_and_ids.into_iter() {
-                v.push(def);
-
-                for def in recur(&id, host).into_iter() {
-                    v.push(def);
-                }
-            }
-
-            v
+            let child_defs: Vec<analysis::Def> = ids.into_par_iter()
+                .map(|id: analysis::Id| recur(&id, host))
+                .reduce(|| Vec::new(), |mut a: Vec<analysis::Def>,
+                 b: Vec<analysis::Def>| {
+                    a.extend(b);
+                    a
+                });
+            defs.extend(child_defs);
+            defs
         }
 
         let defs: Vec<analysis::Def> = recur(&root_id, host);
