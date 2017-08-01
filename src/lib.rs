@@ -6,14 +6,16 @@
 extern crate error_chain;
 #[macro_use]
 extern crate serde_derive;
+#[cfg_attr(test, macro_use)]
+extern crate serde_json;
 
 extern crate indicatif;
 extern crate rayon;
 extern crate rls_analysis as analysis;
 extern crate serde;
-extern crate serde_json;
 
 pub mod assets;
+pub mod cargo;
 pub mod error;
 pub mod item;
 pub mod json;
@@ -21,8 +23,7 @@ pub mod json;
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::prelude::*;
-use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::path::PathBuf;
 
 use analysis::AnalysisHost;
 use analysis::raw::DefKind;
@@ -76,10 +77,10 @@ impl Config {
 /// - config: The `Config` struct that contains the data needed to generate the documentation
 /// - artifacts: A slice containing what assets should be output at the end
 pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
-    generate_analysis(config)?;
+    generate_and_load_analysis(config)?;
 
-    let package_name = crate_name_from_manifest_path(&config.manifest_path)?;
-    let data = DocData::new(&config.host, &package_name)?;
+    let crate_name = cargo::crate_name_from_manifest_path(&config.manifest_path)?;
+    let data = DocData::new(&config.host, &crate_name)?;
 
     let output_path = config.manifest_path.join("target/doc");
     fs::create_dir_all(&output_path)?;
@@ -119,101 +120,25 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
     Ok(())
 }
 
-/// Grab the name of the binary or library from it's `Cargo.toml` file.
-///
-/// ## Arguments
-///
-/// - manifest_path: The path to the location of `Cargo.toml` of the crate being documented
-fn crate_name_from_manifest_path(manifest_path: &Path) -> Result<String> {
-    let mut command = Command::new("cargo");
-
-    command
-        .arg("metadata")
-        .arg("--manifest-path")
-        .arg(manifest_path.join("Cargo.toml"))
-        .arg("--no-deps")
-        .arg("--format-version")
-        .arg("1");
-
-    let output = command.output()?;
-
-    if !output.status.success() {
-        return Err(
-            ErrorKind::Cargo(
-                output.status,
-                String::from_utf8_lossy(&output.stderr).into_owned(),
-            ).into(),
-        );
-    }
-
-    let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
-
-    let targets = match json["packages"][0]["targets"].as_array() {
-        Some(targets) => targets,
-        None => return Err(ErrorKind::Json("targets is not an array").into()),
-    };
-
-    for target in targets {
-        let crate_types = match target["crate_types"].as_array() {
-            Some(crate_types) => crate_types,
-            None => return Err(ErrorKind::Json("crate types is not an array").into()),
-        };
-
-        for crate_type in crate_types {
-
-            let ty = match crate_type.as_str() {
-                Some(t) => t,
-                None => {
-                    return Err(
-                        ErrorKind::Json("crate type contents are not a string").into(),
-                    )
-                }
-            };
-
-            if ty == "lib" {
-                match target["name"].as_str() {
-                    Some(name) => return Ok(name.to_string()),
-                    None => return Err(ErrorKind::Json("target name is not a string").into()),
-                }
-            }
-        }
-    }
-
-    Err(ErrorKind::Json("cargo metadata").into())
-}
-
-/// Generate save analysis data of a crate to be used later by the RLS library later
+/// Generate save analysis data of a crate to be used later by the RLS library later and load it
+/// into the analysis host.
 ///
 /// ## Arguments:
 ///
 /// - config: Contains data for what needs to be output or used. In this case the path to the
 ///           `Cargo.toml` file
-fn generate_analysis(config: &Config) -> Result<()> {
-    let mut command = Command::new("cargo");
+fn generate_and_load_analysis(config: &Config) -> Result<()> {
     let manifest_path = &config.manifest_path;
-
-    command
-        .arg("check")
-        .arg("--manifest-path")
-        .arg(manifest_path.join("Cargo.toml"))
-        .env("RUSTFLAGS", "-Z save-analysis")
-        .env("CARGO_TARGET_DIR", manifest_path.join("target/rls"));
 
     let spinner = ProgressBar::new_spinner();
     spinner.enable_steady_tick(50);
     spinner.set_message("Generating save analysis data: In Progress");
 
-    let output = command.output()?;
-
-    if !output.status.success() {
+    if let Err(e) = cargo::generate_analysis(manifest_path) {
         spinner.finish_with_message("Generating save analysis data: Error");
-        return Err(
-            ErrorKind::Cargo(
-                output.status,
-                String::from_utf8_lossy(&output.stderr).into_owned(),
-            ).into(),
-        );
+        return Err(e);
     }
+
     spinner.finish_with_message("Generating save analysis data: Done");
 
     let spinner = ProgressBar::new_spinner();
