@@ -210,32 +210,17 @@ impl DocData {
             defs
         }
 
-        let defs: Vec<analysis::Def> = recur(&root_id, host);
-
-        for def in defs.into_iter() {
-            match def.kind {
-                DefKind::Mod => {
-                    doc_data.metadata.push(Metadata::Module {
-                        qualified_name: def.qualname,
-                        name: def.name,
-                        docs: def.docs,
-                    });
+        doc_data.metadata = recur(&root_id, host)
+            .into_iter()
+            .map(|def| {
+                Metadata {
+                    kind: def.kind,
+                    qualified_name: def.qualname,
+                    name: def.name,
+                    docs: def.docs,
                 }
-                DefKind::Static => (),
-                DefKind::Const => (),
-                DefKind::Enum => (),
-                DefKind::Struct => (),
-                DefKind::Union => (),
-                DefKind::Trait => (),
-                DefKind::Function => (),
-                DefKind::Macro => (),
-                DefKind::Tuple => (),
-                DefKind::Method => (),
-                DefKind::Type => (),
-                DefKind::Local => (),
-                DefKind::Field => (),
-            }
-        }
+            })
+            .collect();
 
         Ok(doc_data)
     }
@@ -249,13 +234,14 @@ impl DocData {
 
         // Check each item in the metadata and add it to be serialized based off it's type
         for item in self.metadata.iter() {
-            match item {
-                &Metadata::Module {
-                    ref qualified_name,
-                    ref name,
-                    ref docs,
-                } => {
-
+            let Metadata {
+                ref kind,
+                ref qualified_name,
+                ref name,
+                ref docs,
+            } = *item;
+            match *kind {
+                DefKind::Mod => {
                     // The `relationships` `HashMap` had a module value added before so we push this
                     // new module relationship into it
                     if let Some(ref mut vec) = relationships.get_mut("modules") {
