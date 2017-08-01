@@ -33,7 +33,7 @@ pub fn crate_name_from_metadata(metadata: &serde_json::Value) -> Result<String> 
 
             if ty == "lib" {
                 match target["name"].as_str() {
-                    Some(name) => return Ok(name.to_string()),
+                    Some(name) => return Ok(name.replace('-', "_")),
                     None => return Err(ErrorKind::Json("target name is not a string").into()),
                 }
             }
@@ -43,4 +43,40 @@ pub fn crate_name_from_metadata(metadata: &serde_json::Value) -> Result<String> 
     Err(
         ErrorKind::Json("cargo metadata contained no targets").into(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn crate_name_from_metadata() {
+        let metadata = json!({
+            "packages": [
+                {
+                    "name": "underscored_name",
+                    "targets": [
+                        {
+                            "crate_types": [ "lib" ],
+                            "name": "underscored_name",
+                        },
+                    ],
+                },
+            ],
+        });
+        assert_eq!(&super::crate_name_from_metadata(&metadata).unwrap(), "underscored_name");
+
+        let metadata = json!({
+            "packages": [
+                {
+                    "name": "dashed-name",
+                    "targets": [
+                        {
+                            "crate_types": [ "lib" ],
+                            "name": "dashed-name",
+                        },
+                    ],
+                },
+            ],
+        });
+        assert_eq!(&super::crate_name_from_metadata(&metadata).unwrap(), "dashed_name");
+    }
 }

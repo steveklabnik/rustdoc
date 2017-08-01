@@ -6,12 +6,13 @@
 extern crate error_chain;
 #[macro_use]
 extern crate serde_derive;
+#[cfg_attr(test, macro_use)]
+extern crate serde_json;
 
 extern crate indicatif;
 extern crate rayon;
 extern crate rls_analysis as analysis;
 extern crate serde;
-extern crate serde_json;
 
 pub mod assets;
 pub mod cargo;
