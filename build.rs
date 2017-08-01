@@ -115,7 +115,7 @@ impl fmt::Display for Asset {
 
         let asset =
             format!(
-            r#"Asset {{
+            r#"rustdoc::assets::Asset {{
                 name: "{name}",
                 contents: include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/{path}")),
             }}"#,

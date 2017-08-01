@@ -16,7 +16,6 @@ doctest = false
 clap = "2.24.2"
 error-chain = "0.10.0"
 indicatif = "0.6.0"
-lazy_static = "0.2"
 rayon = "0.8.2"
 rls-analysis = "0.4.0"
 serde = "1.0.11"

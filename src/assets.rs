@@ -6,11 +6,6 @@ use std::path::Path;
 
 use error::*;
 
-lazy_static! {
-    /// The assets to be output in the target directory.
-    pub static ref ASSETS: Vec<Asset> = include!(concat!(env!("OUT_DIR"), "/asset.in"));
-}
-
 /// Static assets compiled into the binary so we get a single executable. These are dynamically
 /// generated with the build script based off of items in the `frontend/dist` folder.
 pub struct Asset {

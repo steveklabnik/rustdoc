@@ -5,8 +5,6 @@
 #[macro_use]
 extern crate error_chain;
 #[macro_use]
-extern crate lazy_static;
-#[macro_use]
 extern crate serde_derive;
 
 extern crate indicatif;
@@ -31,6 +29,7 @@ use analysis::raw::DefKind;
 use indicatif::ProgressBar;
 use rayon::prelude::*;
 
+use assets::Asset;
 use error::*;
 use item::Metadata;
 use json::*;
@@ -48,6 +47,7 @@ pub use error::{Error, ErrorKind};
 pub struct Config {
     manifest_path: PathBuf,
     host: analysis::AnalysisHost,
+    assets: Vec<Asset>,
 }
 
 impl Config {
@@ -57,12 +57,13 @@ impl Config {
     /// ## Arguments
     ///
     /// - manifest_path: The path to the location of `Cargo.toml` of the crate being documented
-    pub fn new(manifest_path: PathBuf) -> Result<Config> {
+    pub fn new(manifest_path: PathBuf, assets: Vec<Asset>) -> Result<Config> {
         let host = analysis::AnalysisHost::new(analysis::Target::Debug);
 
         Ok(Config {
             manifest_path,
             host,
+            assets,
         })
     }
 }
@@ -108,7 +109,7 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
         assets_path.push("assets");
         fs::create_dir_all(&assets_path)?;
 
-        for asset in assets::ASSETS.iter() {
+        for asset in &config.assets {
             assets::create_asset_file(asset.name, &output_path, asset.contents)?;
         }
 

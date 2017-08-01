@@ -47,7 +47,8 @@ fn main() {
 
     // unwrap is okay because we take a default value
     let manifest_path = PathBuf::from(&matches.value_of("manifest-path").unwrap());
-    let config = Config::new(manifest_path).unwrap_or_else(|err| {
+    let assets = include!(concat!(env!("OUT_DIR"), "/asset.in"));
+    let config = Config::new(manifest_path, assets).unwrap_or_else(|err| {
         println!("Problem creating configuration: {}", err);
         process::exit(1);
     });
