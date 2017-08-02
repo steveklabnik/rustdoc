@@ -210,79 +210,49 @@ impl DocData {
             defs
         }
 
-        let defs: Vec<analysis::Def> = recur(&root_id, host);
-
-        for def in defs.into_iter() {
-            match def.kind {
-                DefKind::Mod => {
-                    doc_data.metadata.push(Metadata::Module {
-                        qualified_name: def.qualname,
-                        name: def.name,
-                        docs: def.docs,
-                    });
+        doc_data.metadata = recur(&root_id, host)
+            .into_iter()
+            .map(|def| {
+                Metadata {
+                    kind: def.kind,
+                    qualified_name: def.qualname,
+                    name: def.name,
+                    docs: def.docs,
                 }
-                DefKind::Static => (),
-                DefKind::Const => (),
-                DefKind::Enum => (),
-                DefKind::Struct => (),
-                DefKind::Union => (),
-                DefKind::Trait => (),
-                DefKind::Function => (),
-                DefKind::Macro => (),
-                DefKind::Tuple => (),
-                DefKind::Method => (),
-                DefKind::Type => (),
-                DefKind::Local => (),
-                DefKind::Field => (),
-            }
-        }
+            })
+            .collect();
 
         Ok(doc_data)
     }
 
     /// Serialize the data structure into a valid `JSON API` String for output later.
     pub fn to_json(&self) -> Result<String> {
-
         // Set up the values we'll later push into the to `Documentation` struct to be serialized
         let mut included: Vec<Document> = Vec::new();
         let mut relationships: HashMap<&str, Vec<Data>> = HashMap::with_capacity(METADATA_SIZE);
 
         // Check each item in the metadata and add it to be serialized based off it's type
-        for item in self.metadata.iter() {
-            match item {
-                &Metadata::Module {
-                    ref qualified_name,
-                    ref name,
-                    ref docs,
-                } => {
+        for item in &self.metadata {
+            let (ty, relations_key) = match item.kind {
+                DefKind::Mod => ("module", "modules"),
+                DefKind::Struct => ("struct", "structs"),
+                _ => continue,
+            };
 
-                    // The `relationships` `HashMap` had a module value added before so we push this
-                    // new module relationship into it
-                    if let Some(ref mut vec) = relationships.get_mut("modules") {
-                        vec.push(Data::new().ty("module").id(&qualified_name));
-                    }
+            // Using the item's metadata we create a new `Document` type to be put in the eventual
+            // serialized JSON.
+            included.push(
+                Document::new()
+                    .ty(ty)
+                    .id(&item.qualified_name)
+                    .attributes("name", &item.name)
+                    .attributes("docs", &item.docs),
+            );
 
-                    // We do this to avoid borrow check errors regarding two mutable references.
-                    // A "modules" value was never inserted into the HashMap before so we create it
-                    if let None = relationships.get("modules") {
-                        relationships.insert(
-                            "modules",
-                            vec![Data::new().ty("module").id(&qualified_name)],
-                        );
-                    }
-
-                    // Using the module's metadata we create a new `Document` type to be put in the
-                    // eventual serialized JSON
-                    let module = Document::new()
-                        .ty("module")
-                        .id(&qualified_name)
-                        .attributes("name", name)
-                        .attributes("docs", docs);
-
-                    included.push(module);
-                }
-                _ => {}
-            }
+            let item_relationships = relationships.entry(relations_key).or_insert_with(
+                Default::default,
+            );
+            item_relationships.push(Data::new().ty(ty).id(&item.qualified_name));
         }
 
         let len = self.name.len();
