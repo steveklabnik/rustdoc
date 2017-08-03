@@ -202,18 +202,18 @@ pub fn create_json(host: &AnalysisHost, crate_name: &str) -> Result<String> {
         item_relationships.push(Data::new().ty(ty).id(def.qualname));
     }
 
-    let mut data_document = Document::new()
+    let mut crate_document = Document::new()
         .ty(String::from("crate"))
         .id(crate_name.to_string())
         .attributes(String::from("docs"), root_def.docs);
 
     // Insert all of the different types of relationships into this `Document` type only
     for (ty, data) in relationships {
-        data_document.relationships(ty, data);
+        crate_document.relationships(ty, data);
     }
 
     Ok(serde_json::to_string(
-        &Documentation::new().data(data_document).included(
+        &Documentation::new().data(crate_document).included(
             included,
         ),
     )?)
