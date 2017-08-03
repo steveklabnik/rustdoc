@@ -7,6 +7,28 @@ use serde_json;
 
 use error::*;
 
+/// The kinds of targets that we can document.
+#[derive(Debug, PartialEq, Eq)]
+pub enum TargetKind {
+    /// A `bin` target.
+    Binary,
+
+    /// A `lib` target.
+    Library,
+}
+
+/// A target of documentation.
+#[derive(Debug, PartialEq, Eq)]
+pub struct Target {
+    /// The kind of the target.
+    pub kind: TargetKind,
+
+    /// The name of the target's crate.
+    ///
+    /// This name is equivalent to the target's name, with dashes replaced by underscores.
+    pub crate_name: String,
+}
+
 /// Generate and parse the metadata of a cargo project.
 ///
 /// ## Arguments
@@ -68,12 +90,12 @@ pub fn generate_analysis(manifest_path: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Parse the crate name of the binary or library from crate metadata.
+/// Parse the library target from the crate metadata.
 ///
 /// ## Arguments
 ///
-/// - `metadata`: The JSON metadata of the crate.
-pub fn crate_name_from_metadata(metadata: &serde_json::Value) -> Result<String> {
+/// - metadata: The JSON metadata of the crate.
+pub fn target_from_metadata(metadata: &serde_json::Value) -> Result<Target> {
     let targets = match metadata["packages"][0]["targets"].as_array() {
         Some(targets) => targets,
         None => return Err(ErrorKind::Json("targets is not an array").into()),
@@ -97,7 +119,13 @@ pub fn crate_name_from_metadata(metadata: &serde_json::Value) -> Result<String> 
 
             if ty == "lib" {
                 match target["name"].as_str() {
-                    Some(name) => return Ok(name.replace('-', "_")),
+                    Some(name) => {
+                        let target = Target {
+                            kind: TargetKind::Library,
+                            crate_name: name.replace('-', "_"),
+                        };
+                        return Ok(target);
+                    }
                     None => return Err(ErrorKind::Json("target name is not a string").into()),
                 }
             }
@@ -105,14 +133,16 @@ pub fn crate_name_from_metadata(metadata: &serde_json::Value) -> Result<String> 
     }
 
     Err(
-        ErrorKind::Json("cargo metadata contained no targets").into(),
+        ErrorKind::Json("cargo metadata contained no library targets").into(),
     )
 }
 
 #[cfg(test)]
 mod tests {
+    use super::{Target, TargetKind};
+
     #[test]
-    fn crate_name_from_metadata() {
+    fn target_from_metadata() {
         let metadata = json!({
             "packages": [
                 {
@@ -126,7 +156,10 @@ mod tests {
                 },
             ],
         });
-        assert_eq!(&super::crate_name_from_metadata(&metadata).unwrap(), "underscored_name");
+        assert_eq!(
+            super::target_from_metadata(&metadata).unwrap(),
+            Target { kind: TargetKind::Library, crate_name: String::from("underscored_name"), }
+        );
 
         let metadata = json!({
             "packages": [
@@ -141,6 +174,9 @@ mod tests {
                 },
             ],
         });
-        assert_eq!(&super::crate_name_from_metadata(&metadata).unwrap(), "dashed_name");
+        assert_eq!(
+            super::target_from_metadata(&metadata).unwrap(),
+            Target { kind: TargetKind::Library, crate_name: String::from("dashed_name"), }
+        );
     }
 }

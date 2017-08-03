@@ -75,7 +75,7 @@ impl Config {
 /// - `artifacts`: A slice containing what assets should be output at the end
 pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
     let metadata = cargo::retrieve_metadata(&config.manifest_path)?;
-    let crate_name = cargo::crate_name_from_metadata(&metadata)?;
+    let target = cargo::target_from_metadata(&metadata)?;
     generate_and_load_analysis(config)?;
 
     let output_path = config.manifest_path.join("target/doc");
@@ -86,7 +86,7 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
         spinner.enable_steady_tick(50);
         spinner.set_message("Generating JSON: In Progress");
 
-        let json = create_json(&config.host, &crate_name)?;
+        let json = create_json(&config.host, &target.crate_name)?;
 
         let mut json_path = output_path.clone();
         json_path.push("data.json");
