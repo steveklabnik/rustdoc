@@ -113,6 +113,68 @@ fn crate_name_from_metadata(metadata: &serde_json::Value) -> Result<String> {
     )
 }
 
+
+/// Grab the name of the binary or library from it's `Cargo.toml` file.
+///
+/// ## Arguments
+///
+/// - manifest_path: The path to the location of `Cargo.toml` of the crate being documented
+pub fn workspace_members_from_metadata(manifest_path: &Path) -> Result<Vec<String>> {
+    let mut command = Command::new("cargo");
+
+    command
+        .arg("metadata")
+        .arg("--manifest-path")
+        .arg(manifest_path.join("Cargo.toml"))
+        .arg("--no-deps")
+        .arg("--format-version")
+        .arg("1");
+
+    let output = command.output()?;
+
+    if !output.status.success() {
+        return Err(
+            ErrorKind::Cargo(
+                output.status,
+                String::from_utf8_lossy(&output.stderr).into_owned(),
+            ).into(),
+        );
+    }
+
+    let mut metadata = serde_json::from_slice(&output.stdout)?;
+    workspace_paths_from_metadata(&mut metadata)
+}
+
+/// Parse the paths of the workspace members from crate metadata.
+///
+/// ## Arguments
+///
+/// - metadata: The JSON metadata of the crate.
+fn workspace_paths_from_metadata(metadata: &mut serde_json::Value) -> Result<Vec<String>> {
+    let workspace_members = match metadata["workspace_members"].as_array_mut() {
+        Some(members) => members,
+        None => return Err(ErrorKind::Json("workspace_members is not an array").into()),
+    };
+
+    // workspace_members values have the form of (where {} indicates values that change):
+    // { wokspace_dir } { version } (path+file//{ path to dir})"
+    // We want to extract the "path to dir" and return those values in an array as a manifest
+    // path.
+    let mut paths = Vec::new();
+
+    for i in workspace_members.into_iter() {
+        // We know this always matches
+        let mut path = i.as_str().unwrap().to_owned().split("(path+file://").nth(1).unwrap().to_owned();
+        // We don't care about the final ) value so take it out"
+        let _ = path.pop();
+        // Cargo.toml will be appended later so we need the '/' here
+        path.push('/');
+        paths.push(path);
+    }
+
+    Ok(paths)
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
