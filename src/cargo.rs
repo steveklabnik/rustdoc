@@ -30,12 +30,25 @@ pub fn generate_analysis(manifest_path: &Path) -> Result<()> {
     let output = command.output()?;
 
     if !output.status.success() {
-        return Err(
-            ErrorKind::Cargo(
-                output.status,
-                String::from_utf8_lossy(&output.stderr).into_owned(),
-            ).into(),
-        );
+        let mut command = Command::new("cargo");
+        command
+            .arg("check")
+            .arg("--bins")
+            .arg("--manifest-path")
+            .arg(manifest_path.join("Cargo.toml"))
+            .env("RUSTFLAGS", "-Z save-analysis")
+            .env("CARGO_TARGET_DIR", manifest_path.join("target/rls"));
+
+        let output = command.output()?;
+
+        if !output.status.success() {
+            return Err(
+                ErrorKind::Cargo(
+                    output.status,
+                    String::from_utf8_lossy(&output.stderr).into_owned(),
+                ).into(),
+            );
+        }
     }
 
     Ok(())
@@ -78,39 +91,29 @@ pub fn crate_name_from_manifest_path(manifest_path: &Path) -> Result<String> {
 ///
 /// - metadata: The JSON metadata of the crate.
 fn crate_name_from_metadata(metadata: &serde_json::Value) -> Result<String> {
-    let targets = match metadata["packages"][0]["targets"].as_array() {
-        Some(targets) => targets,
-        None => return Err(ErrorKind::Json("targets is not an array").into()),
+    println!("{:#?}", metadata);
+    let mut root = match metadata["packages"][0]["name"].as_str() {
+        Some(root) => root,
+        None => return Err(ErrorKind::Json("resolve.root is not a string").into()),
     };
 
-    for target in targets {
-        let crate_types = match target["crate_types"].as_array() {
-            Some(crate_types) => crate_types,
-            None => return Err(ErrorKind::Json("crate types is not an array").into()),
-        };
-
-        for crate_type in crate_types {
-            let ty = match crate_type.as_str() {
-                Some(t) => t,
-                None => {
-                    return Err(
-                        ErrorKind::Json("crate type contents are not a string").into(),
-                    )
-                }
+    match root.split_whitespace().nth(0) {
+        Some(root) => {
+            let kind = &metadata["packages"][0]["targets"][0]["crate_types"][0];
+            println!("{:#?}", kind);
+            let string = match kind.as_str() {
+                Some(lib) => lib,
+                None => return Err(ErrorKind::Json("kind is not a string").into()),
             };
 
-            if ty == "lib" {
-                match target["name"].as_str() {
-                    Some(name) => return Ok(name.replace('-', "_")),
-                    None => return Err(ErrorKind::Json("target name is not a string").into()),
-                }
+            if string == "lib" {
+                Ok(root.to_owned().replace('-', "_"))
+            } else {
+                Ok(root.to_owned())
             }
-        }
+        },
+        None => Err(ErrorKind::Json("No value for resolve.root was found").into()),
     }
-
-    Err(
-        ErrorKind::Json("cargo metadata contained no targets").into(),
-    )
 }
 
 
