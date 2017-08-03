@@ -74,9 +74,9 @@ impl Config {
 /// - `config`: The `Config` struct that contains the data needed to generate the documentation
 /// - `artifacts`: A slice containing what assets should be output at the end
 pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
+    let metadata = cargo::retrieve_metadata(&config.manifest_path)?;
+    let crate_name = cargo::crate_name_from_metadata(&metadata)?;
     generate_and_load_analysis(config)?;
-
-    let crate_name = cargo::crate_name_from_manifest_path(&config.manifest_path)?;
 
     let output_path = config.manifest_path.join("target/doc");
     fs::create_dir_all(&output_path)?;
