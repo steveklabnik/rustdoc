@@ -23,10 +23,22 @@ pub struct Target {
     /// The kind of the target.
     pub kind: TargetKind,
 
-    /// The name of the target's crate.
+    /// The name of the target.
+    ///
+    /// This is *not* the name of the target's crate, which is used to retrieve the analysis data.
+    /// Use the [`crate_name`] method instead.
+    ///
+    /// [`crate_name`]: ./struct.Target.html#method.crate_name
+    pub name: String,
+}
+
+impl Target {
+    /// Returns the name of the target's crate.
     ///
     /// This name is equivalent to the target's name, with dashes replaced by underscores.
-    pub crate_name: String,
+    pub fn crate_name(&self) -> String {
+        self.name.replace('-', "_")
+    }
 }
 
 /// Generate and parse the metadata of a cargo project.
@@ -61,20 +73,25 @@ pub fn retrieve_metadata(manifest_path: &Path) -> Result<serde_json::Value> {
 /// ## Arguments
 ///
 /// - `manifest_path`: The path containing the `Cargo.toml` of the crate
-pub fn generate_analysis(manifest_path: &Path) -> Result<()> {
-    // FIXME: Here we assume that we are documenting a library. This could be wrong, but it's the
-    // common case, and it ensures that we are documenting the right target in the case that the
-    // crate contains a binary and a library with the same name.
-    //
-    // Maybe we could use Cargo.toml's `doc = false` attribute to figure out the right target?
+/// - `target`: The target that we should generate the analysis data for
+pub fn generate_analysis(manifest_path: &Path, target: &Target) -> Result<()> {
     let mut command = Command::new("cargo");
+
     command
         .arg("check")
-        .arg("--lib")
         .arg("--manifest-path")
         .arg(manifest_path.join("Cargo.toml"))
         .env("RUSTFLAGS", "-Z save-analysis")
         .env("CARGO_TARGET_DIR", manifest_path.join("target/rls"));
+
+    match target.kind {
+        TargetKind::Library => {
+            command.arg("--lib");
+        }
+        TargetKind::Binary => {
+            command.args(&["--bin", &target.name]);
+        }
+    }
 
     let output = command.output()?;
 
@@ -96,45 +113,66 @@ pub fn generate_analysis(manifest_path: &Path) -> Result<()> {
 ///
 /// - metadata: The JSON metadata of the crate.
 pub fn target_from_metadata(metadata: &serde_json::Value) -> Result<Target> {
-    let targets = match metadata["packages"][0]["targets"].as_array() {
-        Some(targets) => targets,
-        None => return Err(ErrorKind::Json("targets is not an array").into()),
-    };
+    // We can expect at least one package and target, otherwise the metadata generation would have
+    // failed.
+    let targets = metadata["packages"][0]["targets"].as_array().expect(
+        "`targets` is not an array",
+    );
 
-    for target in targets {
-        let crate_types = match target["crate_types"].as_array() {
-            Some(crate_types) => crate_types,
-            None => return Err(ErrorKind::Json("crate types is not an array").into()),
-        };
+    let mut targets = targets
+        .into_iter()
+        .flat_map(|target| {
+            let name = target["name"].as_str().expect("`name` is not a string");
+            let kinds = target["kind"].as_array().expect("`kind` is not an array");
 
-        for crate_type in crate_types {
-            let ty = match crate_type.as_str() {
-                Some(t) => t,
-                None => {
-                    return Err(
-                        ErrorKind::Json("crate type contents are not a string").into(),
-                    )
-                }
+            if kinds.len() != 1 {
+                return Some(Err(
+                    ErrorKind::Json(
+                        format!("expected one kind for target '{}'", name),
+                    ).into(),
+                ));
+            }
+
+            let kind = match kinds[0].as_str().unwrap() {
+                "lib" => TargetKind::Library,
+                "bin" => TargetKind::Binary,
+                _ => return None,
             };
 
-            if ty == "lib" {
-                match target["name"].as_str() {
-                    Some(name) => {
-                        let target = Target {
-                            kind: TargetKind::Library,
-                            crate_name: name.replace('-', "_"),
-                        };
-                        return Ok(target);
-                    }
-                    None => return Err(ErrorKind::Json("target name is not a string").into()),
-                }
-            }
+            let target = Target {
+                name: name.to_owned(),
+                kind,
+            };
+
+            Some(Ok(target))
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    if targets.is_empty() {
+        bail!(ErrorKind::Json(
+            "no targets with supported kinds (`bin`, `lib`) found"
+                .into(),
+        ));
+    } else if targets.len() == 1 {
+        Ok(targets.remove(0))
+    } else {
+        // FIXME(#105): Handle more than one target.
+        print!("warning: Found more than one target to document. ");
+        let (mut libs, mut bins): (Vec<_>, Vec<_>) =
+            targets.into_iter().partition(|target| match target.kind {
+                TargetKind::Library => true,
+                TargetKind::Binary => false,
+            });
+
+        if !libs.is_empty() {
+            println!("Documenting the library.");
+            Ok(libs.remove(0))
+        } else {
+            let target = bins.remove(0);
+            println!("Documenting the first binary: {}", target.name);
+            Ok(target)
         }
     }
-
-    Err(
-        ErrorKind::Json("cargo metadata contained no library targets").into(),
-    )
 }
 
 #[cfg(test)]
@@ -149,17 +187,16 @@ mod tests {
                     "name": "underscored_name",
                     "targets": [
                         {
-                            "crate_types": [ "lib" ],
+                            "kind": [ "lib" ],
                             "name": "underscored_name",
                         },
                     ],
                 },
             ],
         });
-        assert_eq!(
-            super::target_from_metadata(&metadata).unwrap(),
-            Target { kind: TargetKind::Library, crate_name: String::from("underscored_name"), }
-        );
+        let target = super::target_from_metadata(&metadata).unwrap();
+        assert_eq!(target, Target { kind: TargetKind::Library, name: "underscored_name".into() });
+        assert_eq!(&target.crate_name(), "underscored_name");
 
         let metadata = json!({
             "packages": [
@@ -167,16 +204,81 @@ mod tests {
                     "name": "dashed-name",
                     "targets": [
                         {
-                            "crate_types": [ "lib" ],
+                            "kind": [ "lib" ],
                             "name": "dashed-name",
                         },
                     ],
                 },
             ],
         });
-        assert_eq!(
-            super::target_from_metadata(&metadata).unwrap(),
-            Target { kind: TargetKind::Library, crate_name: String::from("dashed_name"), }
-        );
+        let target = super::target_from_metadata(&metadata).unwrap();
+        assert_eq!(target, Target { kind: TargetKind::Library, name: "dashed-name".into() });
+        assert_eq!(&target.crate_name(), "dashed_name");
+
+        let metadata = json!({
+            "packages": [
+                {
+                    "name": "underscored_name",
+                    "targets": [
+                        {
+                            "kind": [ "bin" ],
+                            "name": "underscored_name",
+                        },
+                    ],
+                },
+            ],
+        });
+        let target = super::target_from_metadata(&metadata).unwrap();
+        assert_eq!(target, Target { kind: TargetKind::Binary, name: "underscored_name".into() });
+        assert_eq!(&target.crate_name(), "underscored_name");
+
+        let metadata = json!({
+            "packages": [
+                {
+                    "name": "library",
+                    "targets": [
+                        {
+                            "kind": [ "lib" ],
+                            "name": "library",
+                        },
+                    ],
+                },
+            ],
+        });
+        assert_eq!(super::target_from_metadata(&metadata).unwrap().kind, TargetKind::Library);
+
+        let metadata = json!({
+            "packages": [
+                {
+                    "name": "binary",
+                    "targets": [
+                        {
+                            "kind": [ "bin" ],
+                            "name": "binary",
+                        },
+                    ],
+                },
+            ],
+        });
+        assert_eq!(super::target_from_metadata(&metadata).unwrap().kind, TargetKind::Binary);
+
+        let metadata = json!({
+            "packages": [
+                {
+                    "name": "library",
+                    "targets": [
+                        {
+                            "kind": [ "lib" ],
+                            "name": "library",
+                        },
+                        {
+                            "kind": [ "test" ],
+                            "name": "other_kind",
+                        },
+                    ],
+                },
+            ],
+        });
+        assert_eq!(super::target_from_metadata(&metadata).unwrap().kind, TargetKind::Library);
     }
 }
