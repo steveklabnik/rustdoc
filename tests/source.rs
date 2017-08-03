@@ -40,7 +40,6 @@ use std::process::Command;
 use analysis::{AnalysisHost, Target};
 use regex::Regex;
 use serde_json::Value;
-use rustdoc::DocData;
 
 lazy_static! {
     /// Matches valid JSON pointers.
@@ -153,8 +152,9 @@ fn check(source_file: &Path, host: &AnalysisHost) -> Result<()> {
         .file_stem()
         .and_then(|stem| stem.to_str())
         .ok_or_else(|| "Invalid source file stem")?;
-    let json = DocData::new(host, package_name)?.to_json()?;
-    let json = serde_json::from_str(&json)?;
+    let data = rustdoc::create_json(host, package_name)?;
+
+    let json = serde_json::from_str(&data)?;
 
     let source = BufReader::new(File::open(source_file)?);
     let mut found_test = false;
