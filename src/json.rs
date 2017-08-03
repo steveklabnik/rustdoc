@@ -52,9 +52,9 @@ const DATA_SIZE: usize = 1;
 /// - `data`: The top level crate information and documentation
 /// - `included`: The rest of the crate information and documentation
 #[derive(Serialize, Debug)]
-pub struct Documentation<'a> {
-    data: Option<Document<'a>>,
-    included: Option<Vec<Document<'a>>>,
+pub struct Documentation {
+    data: Option<Document>,
+    included: Option<Vec<Document>>,
 }
 
 /// A sub type of the `Documentation` struct. It contains the majority of the data. It can be used
@@ -68,12 +68,12 @@ pub struct Documentation<'a> {
 /// - `relationships`: An optional field used to show the relationship between the crate to the
 ///   otheritems in the crate
 #[derive(Serialize, Debug)]
-pub struct Document<'a> {
+pub struct Document {
     #[serde(rename = "type")]
-    ty: &'a str,
-    id: &'a str,
-    attributes: HashMap<&'a str, &'a str>,
-    relationships: Option<HashMap<&'a str, HashMap<&'a str, Vec<Data<'a>>>>>,
+    ty: String,
+    id: String,
+    attributes: HashMap<String, String>,
+    relationships: Option<HashMap<String, HashMap<String, Vec<Data>>>>,
 }
 
 /// Used to populate the `relationships` `data` field in the serialized JSON
@@ -83,13 +83,13 @@ pub struct Document<'a> {
 /// - `ty`: The type of the the item (e.g. "crate", "function", "enum", etc.)
 /// - `id`: The unique identifier associated with this item
 #[derive(Serialize, Debug)]
-pub struct Data<'a> {
+pub struct Data {
     #[serde(rename = "type")]
-    ty: &'a str,
-    id: &'a str,
+    ty: String,
+    id: String,
 }
 
-impl<'a> Documentation<'a> {
+impl Documentation {
     /// Create an empty `Documentation` struct
     pub fn new() -> Self {
         Self {
@@ -100,25 +100,25 @@ impl<'a> Documentation<'a> {
 
     /// Set the `data` field of a `Documentation` struct to the value passed into the
     /// `data` argument
-    pub fn data(mut self, data: Document<'a>) -> Self {
+    pub fn data(mut self, data: Document) -> Self {
         self.data = Some(data);
         self
     }
 
     /// Set the `included` field of a `Documentation` struct to the value passed into the
     /// `included` argument
-    pub fn included(mut self, included: Vec<Document<'a>>) -> Self {
+    pub fn included(mut self, included: Vec<Document>) -> Self {
         self.included = Some(included);
         self
     }
 }
 
-impl<'a> Document<'a> {
+impl Document {
     /// Create an empty `Document` struct
     pub fn new() -> Self {
         Self {
-            ty: "",
-            id: "",
+            ty: String::new(),
+            id: String::new(),
             attributes: HashMap::new(),
             relationships: None,
         }
@@ -126,14 +126,14 @@ impl<'a> Document<'a> {
 
     /// Set the `ty` field of a `Document` struct to the value passed into the
     /// `t` argument
-    pub fn ty(mut self, t: &'a str) -> Self {
+    pub fn ty(mut self, t: String) -> Self {
         self.ty = t;
         self
     }
 
     /// Set the `id` field of a `Document` struct to the value passed into the
     /// `id` argument
-    pub fn id(mut self, id: &'a str) -> Self {
+    pub fn id(mut self, id: String) -> Self {
         self.id = id;
         self
     }
@@ -141,7 +141,7 @@ impl<'a> Document<'a> {
     /// Insert an attribute for the `attribute` field of a `Document` struct. If the current
     /// `attribute` exists it'll be overwritten with the given value, otherwise it'll just be
     /// created for the first time.
-    pub fn attributes(mut self, attribute: &'a str, value: &'a str) -> Self {
+    pub fn attributes(mut self, attribute: String, value: String) -> Self {
         self.attributes.insert(attribute, value);
         self
     }
@@ -149,7 +149,7 @@ impl<'a> Document<'a> {
     /// Insert a relationship for the `relationships` field of a `Document` struct. If the current
     /// `ty` exists it'll be overwritten with the given `data` value, otherwise it'll just be
     /// created for the first time.
-    pub fn relationships(&mut self, ty: &'a str, data: Vec<Data<'a>>) {
+    pub fn relationships(&mut self, ty: String, data: Vec<Data>) {
         match self.relationships {
             // The code below allows us to handle with ease the fact we have data structured like:
             //
@@ -181,7 +181,7 @@ impl<'a> Document<'a> {
             // it to the `Document`.
             None => {
                 let mut data_map = HashMap::with_capacity(DATA_SIZE);
-                data_map.insert("data", data);
+                data_map.insert(String::from("data"), data);
 
                 let mut relationships = HashMap::with_capacity(METADATA_SIZE);
                 relationships.insert(ty, data_map);
@@ -191,7 +191,7 @@ impl<'a> Document<'a> {
             // type, etc.) and the data.
             Some(ref mut relationships) => {
                 let mut data_map = HashMap::with_capacity(DATA_SIZE);
-                data_map.insert("data", data);
+                data_map.insert(String::from("data"), data);
 
                 relationships.insert(ty, data_map);
             }
@@ -199,20 +199,23 @@ impl<'a> Document<'a> {
     }
 }
 
-impl<'a> Data<'a> {
+impl Data {
     /// Create a new empty `Data` struct
     pub fn new() -> Self {
-        Self { ty: "", id: "" }
+        Self {
+            ty: String::new(),
+            id: String::new(),
+        }
     }
 
     /// Set the `ty` field of `Data` to the value passed to the `t` argument
-    pub fn ty(mut self, t: &'a str) -> Self {
+    pub fn ty(mut self, t: String) -> Self {
         self.ty = t;
         self
     }
 
     /// Set the `id` field of `Data` to the value passed to the `id` argument
-    pub fn id(mut self, id: &'a str) -> Self {
+    pub fn id(mut self, id: String) -> Self {
         self.id = id;
         self
     }
