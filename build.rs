@@ -5,7 +5,7 @@ extern crate error_chain;
 #[macro_use]
 extern crate quote;
 extern crate syn;
-extern crate walkdir;
+extern crate glob;
 
 use std::env;
 use std::fmt;
@@ -17,12 +17,13 @@ use std::process::exit;
 use std::thread;
 
 use quote::Ident;
-use walkdir::WalkDir;
+use glob::glob;
 
 error_chain! {
     foreign_links {
         Io(::std::io::Error);
-        WalkDir(::walkdir::Error);
+        PatternError(::glob::PatternError);
+        GlobError(::glob::GlobError);
     }
 }
 
@@ -65,14 +66,23 @@ fn main() {
 /// Start the recursion from the top level of the frontend's dist folder
 fn acquire_assets() -> Result<Vec<Asset>> {
     let mut output: Vec<Asset> = Vec::new();
+    let whitelist = vec![
+        "assets/**",
+        "crossdomain.xml",
+        "ember-fetch/**",
+        "index.html",
+        "robots.txt",
+    ];
 
-    for entry in WalkDir::new(DIST).into_iter() {
-        let entry = entry?;
-        if entry.metadata()?.is_file() {
-            output.push(Asset {
-                // If the directory isn't valid this wouldn't have worked.
-                path: String::from(entry.path().to_str().unwrap()).replace("\\", "/"),
-            });
+    for w in whitelist {
+        for entry in glob(&format!("{}{}", DIST, w))? {
+            let path = entry?;
+            if path.is_file() {
+                output.push(Asset {
+                    // If the directory isn't valid this wouldn't have worked.
+                    path: String::from(path.to_str().unwrap()).replace("\\", "/"),
+                });
+            }
         }
     }
 

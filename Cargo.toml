@@ -28,7 +28,7 @@ git = "http://github.com/steveklabnik/rls-analysis"
 error-chain = "=0.11.0-rc.2"
 quote = "0.3"
 syn = "0.11"
-walkdir = "1.0.7"
+glob = "0.2.11"
 
 [dev-dependencies]
 error-chain = "=0.11.0-rc.2"
