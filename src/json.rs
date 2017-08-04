@@ -225,6 +225,42 @@ mod tests {
     use serde_json;
 
     #[test]
+    fn relationships() {
+        let mut document = Document::new();
+        assert!(document.relationships.is_none());
+
+        document.relationships(
+            "modules".into(),
+            vec![
+                Data::new().ty("module".into()).id(
+                    "example::module_one".into()
+                ),
+            ],
+        );
+
+        {
+            let relationships = &document.relationships.as_ref().unwrap()["modules"]["data"];
+            assert_eq!(relationships.len(), 1);
+            assert_eq!(&relationships[0].id, "example::module_one");
+        }
+
+        document.relationships(
+            "modules".into(),
+            vec![
+                Data::new().ty("module".into()).id(
+                    "example::module_two".into()
+                ),
+            ],
+        );
+
+        {
+            let relationships = &document.relationships.as_ref().unwrap()["modules"]["data"];
+            assert_eq!(relationships.len(), 1);
+            assert_eq!(&relationships[0].id, "example::module_two");
+        }
+    }
+
+    #[test]
     fn serialize() {
         let module_data = Data::new().ty("module".into()).id("example::module".into());
         let module_data_json = json!({
