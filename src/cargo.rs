@@ -11,7 +11,7 @@ use error::*;
 ///
 /// ## Arguments
 ///
-/// - manifest_path: The path containing the `Cargo.toml` of the crate
+/// - `manifest_path`: The path containing the `Cargo.toml` of the crate
 pub fn generate_analysis(manifest_path: &Path) -> Result<()> {
     // FIXME: Here we assume that we are documenting a library. This could be wrong, but it's the
     // common case, and it ensures that we are documenting the right target in the case that the
@@ -45,7 +45,7 @@ pub fn generate_analysis(manifest_path: &Path) -> Result<()> {
 ///
 /// ## Arguments
 ///
-/// - manifest_path: The path to the location of `Cargo.toml` of the crate being documented
+/// - `manifest_path`: The path to the location of `Cargo.toml` of the crate being documented
 pub fn crate_name_from_manifest_path(manifest_path: &Path) -> Result<String> {
     let mut command = Command::new("cargo");
 
@@ -76,7 +76,7 @@ pub fn crate_name_from_manifest_path(manifest_path: &Path) -> Result<String> {
 ///
 /// ## Arguments
 ///
-/// - metadata: The JSON metadata of the crate.
+/// - `metadata`: The JSON metadata of the crate.
 fn crate_name_from_metadata(metadata: &serde_json::Value) -> Result<String> {
     let targets = match metadata["packages"][0]["targets"].as_array() {
         Some(targets) => targets,

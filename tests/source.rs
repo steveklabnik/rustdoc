@@ -138,7 +138,7 @@ fn generate_analysis(source_file: &Path, tempdir: &Path) -> Result<AnalysisHost>
         Ok(())
     }
 
-    workaround(&tempdir)?;
+    workaround(tempdir)?;
 
     let host = AnalysisHost::new(Target::Debug);
     host.reload(tempdir, tempdir)?;

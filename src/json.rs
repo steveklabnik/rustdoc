@@ -5,7 +5,7 @@ use std::collections::HashMap;
 // Sizes for the HashMaps to avoid reallocation and large HashMap sizes when we know
 // the upper limit for them
 
-/// Number of possible values in the enum item::Metadata
+/// Number of possible values in the enum `analysis::DefKind`
 pub const METADATA_SIZE: usize = 14;
 
 /// Under each item in data.relationships how many fields are there. For now we only have one which
@@ -46,7 +46,7 @@ const DATA_SIZE: usize = 1;
 ///     ]
 /// }
 /// ```
-#[derive(Serialize, Debug)]
+#[derive(Debug, Default, Serialize)]
 pub struct Documentation {
     /// The top level crate information and documentation
     data: Option<Document>,
@@ -57,7 +57,7 @@ pub struct Documentation {
 
 /// A sub type of the `Documentation` struct. It contains the majority of the data. It can be used
 /// for both the `data` and `included` field in the serialized JSON.
-#[derive(Serialize, Debug)]
+#[derive(Debug, Default, Serialize)]
 pub struct Document {
     #[serde(rename = "type")]
     /// The type of the item (e.g. "crate", "function", "enum", etc.)
@@ -75,7 +75,7 @@ pub struct Document {
 }
 
 /// Used to populate the `relationships` `data` field in the serialized JSON
-#[derive(Serialize, Debug)]
+#[derive(Debug, Default, Serialize)]
 pub struct Data {
     #[serde(rename = "type")]
     /// The type of the item (e.g. "crate", "function", "enum", etc.)
