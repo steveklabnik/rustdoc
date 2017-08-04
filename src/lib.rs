@@ -220,8 +220,8 @@ pub fn create_json(host: &AnalysisHost, crate_name: &str) -> Result<String> {
     // set up relationships for the crate
     host.for_each_child_def(root_id, |_, def| {
         let (ty, relations_key) = match def.kind {
-            DefKind::Mod => (String::from("module"), String::from("child_modules")),
-            DefKind::Struct => (String::from("struct"), String::from("child_structs")),
+            DefKind::Mod => (String::from("module"), String::from("modules")),
+            DefKind::Struct => (String::from("struct"), String::from("structs")),
             _ => return,
         };
 
