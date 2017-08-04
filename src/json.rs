@@ -71,6 +71,7 @@ pub struct Document {
 
     /// An optional field used to show the relationship between the crate to the other items in the
     /// crate
+    #[serde(skip_serializing_if = "Option::is_none")]
     relationships: Option<HashMap<String, HashMap<String, Vec<Data>>>>,
 }
 
@@ -249,7 +250,6 @@ mod tests {
                 "docs": "module docs",
                 "name": "module",
             },
-            "relationships": null,
         });
         assert_eq!(serde_json::to_value(&module).unwrap(), module_json);
 
