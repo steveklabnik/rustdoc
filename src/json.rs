@@ -5,7 +5,7 @@ use std::collections::HashMap;
 // Sizes for the HashMaps to avoid reallocation and large HashMap sizes when we know
 // the upper limit for them
 
-/// Number of possible values in the enum item::Metadata
+/// Number of possible values in the enum `analysis::DefKind`
 pub const METADATA_SIZE: usize = 14;
 
 /// Under each item in data.relationships how many fields are there. For now we only have one which
@@ -44,48 +44,44 @@ const DATA_SIZE: usize = 1;
 ///             }
 ///         }
 ///     ]
-///}
-///```
-///
-/// ## Fields
-///
-/// - `data`: The top level crate information and documentation
-/// - `included`: The rest of the crate information and documentation
-#[derive(Serialize, Debug)]
+/// }
+/// ```
+#[derive(Debug, Default, Serialize)]
 pub struct Documentation {
+    /// The top level crate information and documentation
     data: Option<Document>,
+
+    /// The rest of the crate information and documentation
     included: Option<Vec<Document>>,
 }
 
 /// A sub type of the `Documentation` struct. It contains the majority of the data. It can be used
 /// for both the `data` and `included` field in the serialized JSON.
-///
-/// ## Fields
-///
-/// - `ty`: The type of the the item (e.g. "crate", "function", "enum", etc.)
-/// - `id`: The unique identifier associated with this item
-/// - `attributes`: The attributes associated with the item like documentation or it's name
-/// - `relationships`: An optional field used to show the relationship between the crate to the
-///   otheritems in the crate
-#[derive(Serialize, Debug)]
+#[derive(Debug, Default, Serialize)]
 pub struct Document {
     #[serde(rename = "type")]
+    /// The type of the item (e.g. "crate", "function", "enum", etc.)
     ty: String,
+
+    /// The unique identifier associated with this item
     id: String,
+
+    /// The attributes associated with the item, like documentation or its name
     attributes: HashMap<String, String>,
+
+    /// An optional field used to show the relationship between the crate to the other items in the
+    /// crate
     relationships: Option<HashMap<String, HashMap<String, Vec<Data>>>>,
 }
 
 /// Used to populate the `relationships` `data` field in the serialized JSON
-///
-/// ## Fields
-///
-/// - `ty`: The type of the the item (e.g. "crate", "function", "enum", etc.)
-/// - `id`: The unique identifier associated with this item
-#[derive(Serialize, Debug)]
+#[derive(Debug, Default, Serialize)]
 pub struct Data {
     #[serde(rename = "type")]
+    /// The type of the item (e.g. "crate", "function", "enum", etc.)
     ty: String,
+
+    /// The unique identifier associated with this item
     id: String,
 }
 

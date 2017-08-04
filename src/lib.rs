@@ -36,16 +36,15 @@ use json::*;
 pub use error::{Error, ErrorKind};
 
 /// A structure that contains various fields that hold data in order to generate doc output.
-///
-/// ## Fields
-///
-/// - `manifest_path`: Path to the directory with the `Cargo.toml` file for the crate being analyzed
-/// - `host`: Contains the Cargo analysis output for the crate being documented
-/// - `assets`: Contains all of the `Asset`s that will be output at the end (e.g. JSON, CSS, HTML
-///             and/or JS)
 pub struct Config {
+    /// Path to the directory with the `Cargo.toml` file for the crate being analyzed
     manifest_path: PathBuf,
+
+    /// Contains the Cargo analysis output for the crate being documented
     host: analysis::AnalysisHost,
+
+    /// Contains all of the `Asset`s that will be output at the end (e.g. JSON, CSS, HTML and/or
+    /// JS)
     assets: Vec<Asset>,
 }
 
@@ -55,7 +54,7 @@ impl Config {
     ///
     /// ## Arguments
     ///
-    /// - manifest_path: The path to the location of `Cargo.toml` of the crate being documented
+    /// - `manifest_path`: The path to the location of `Cargo.toml` of the crate being documented
     pub fn new(manifest_path: PathBuf, assets: Vec<Asset>) -> Result<Config> {
         let host = analysis::AnalysisHost::new(analysis::Target::Debug);
 
@@ -72,8 +71,8 @@ impl Config {
 ///
 /// ## Arguments
 ///
-/// - config: The `Config` struct that contains the data needed to generate the documentation
-/// - artifacts: A slice containing what assets should be output at the end
+/// - `config`: The `Config` struct that contains the data needed to generate the documentation
+/// - `artifacts`: A slice containing what assets should be output at the end
 pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
     generate_and_load_analysis(config)?;
 
@@ -122,8 +121,8 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
 ///
 /// ## Arguments:
 ///
-/// - config: Contains data for what needs to be output or used. In this case the path to the
-///           `Cargo.toml` file
+/// - `config`: Contains data for what needs to be output or used. In this case the path to the
+///             `Cargo.toml` file
 fn generate_and_load_analysis(config: &Config) -> Result<()> {
     let manifest_path = &config.manifest_path;
 
@@ -147,11 +146,11 @@ fn generate_and_load_analysis(config: &Config) -> Result<()> {
     Ok(())
 }
 
-/// This creates the JSON documentation from the given AnalysisHost.
+/// This creates the JSON documentation from the given `AnalysisHost`.
 pub fn create_json(host: &AnalysisHost, crate_name: &str) -> Result<String> {
     let roots = host.def_roots()?;
 
-    let id = roots.iter().find(|&&(_, ref name)| name == &crate_name);
+    let id = roots.iter().find(|&&(_, ref name)| name == crate_name);
     let root_id = match id {
         Some(&(id, _)) => id,
         _ => return Err(ErrorKind::CrateErr(crate_name.to_string()).into()),
@@ -168,7 +167,7 @@ pub fn create_json(host: &AnalysisHost, crate_name: &str) -> Result<String> {
 
         let child_defs: Vec<analysis::Def> = ids.into_par_iter()
             .map(|id: analysis::Id| recur(&id, host))
-            .reduce(|| Vec::new(), |mut a: Vec<analysis::Def>,
+            .reduce(Vec::default, |mut a: Vec<analysis::Def>,
              b: Vec<analysis::Def>| {
                 a.extend(b);
                 a
@@ -209,7 +208,7 @@ pub fn create_json(host: &AnalysisHost, crate_name: &str) -> Result<String> {
         .attributes(String::from("docs"), root_def.docs);
 
     // Insert all of the different types of relationships into this `Document` type only
-    for (ty, data) in relationships.into_iter() {
+    for (ty, data) in relationships {
         data_document.relationships(ty, data);
     }
 

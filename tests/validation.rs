@@ -33,9 +33,8 @@ mod validation_tests {
             panic!("Error: {}", err);
         });
 
-        match doc.validate() {
-            Some(errors) => panic!("Error: {:?}", errors),
-            None => (),
+        if let Some(errors) = doc.validate() {
+            panic!("Error: {:?}", errors);
         }
     }
 }
