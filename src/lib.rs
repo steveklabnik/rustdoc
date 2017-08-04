@@ -93,7 +93,6 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
         let mut file = File::create(json_path)?;
         file.write_all(json.as_bytes())?;
         spinner.finish_with_message("Generating JSON: Done");
-        println!("{}", json);
     }
 
     // now that we've written out the data, we can write out the rest of it
@@ -162,8 +161,7 @@ pub fn create_json(host: &AnalysisHost, crate_name: &str) -> Result<String> {
         let def = host.get_def(*id)?;
 
         let mut ids = Vec::new();
-        host.for_each_child_def(*id, |id, _| { ids.push(id); })
-            .unwrap();
+        host.for_each_child_def(*id, |id, _| ids.push(id))?;
 
         let ty = match def.kind {
             DefKind::Mod => String::from("module"),
@@ -194,7 +192,7 @@ pub fn create_json(host: &AnalysisHost, crate_name: &str) -> Result<String> {
 
         // create child relationships
         let relationships: Vec<_> = child_docs
-            .iter()
+            .par_iter()
             .filter(|doc| doc.ty == "module")
             .map(|doc| Data::new().ty(doc.ty.clone()).id(doc.id.clone()))
             .collect();
