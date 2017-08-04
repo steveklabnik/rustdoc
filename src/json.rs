@@ -216,3 +216,63 @@ impl Data {
         self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Data, Document, Documentation};
+
+    use serde_json;
+
+    #[test]
+    fn serialize() {
+        let module_data = Data::new().ty("module".into()).id("example::module".into());
+        let module_data_json = json!({
+            "type": "module",
+            "id": "example::module",
+        });
+        assert_eq!(module_data_json, serde_json::to_value(&module_data).unwrap());
+
+        let mut krate = Document::new()
+            .ty("crate".into())
+            .id("example".into())
+            .attributes("docs".into(), "crate docs".into());
+
+        let module = Document::new()
+            .ty("module".into())
+            .id("example::module".into())
+            .attributes("docs".into(), "module docs".into())
+            .attributes("name".into(), "module".into());
+        let module_json = json!({
+            "type": "module",
+            "id": "example::module",
+            "attributes": {
+                "docs": "module docs",
+                "name": "module",
+            },
+            "relationships": null,
+        });
+        assert_eq!(serde_json::to_value(&module).unwrap(), module_json);
+
+        krate.relationships("modules".into(), vec![module_data]);
+
+        let documentation = Documentation::new().data(krate).included(vec![module]);
+        assert_eq!(
+            serde_json::to_value(&documentation).unwrap(),
+            json!({
+                "data": {
+                    "type": "crate",
+                    "id": "example",
+                    "attributes": {
+                        "docs": "crate docs",
+                    },
+                    "relationships": {
+                        "modules": {
+                            "data": [ module_data_json ]
+                        }
+                    }
+                },
+                "included": [ module_json ],
+            })
+        );
+    }
+}
