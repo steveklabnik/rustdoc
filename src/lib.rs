@@ -162,9 +162,8 @@ pub fn create_json(host: &AnalysisHost, crate_name: &str) -> Result<String> {
         let def = host.get_def(*id)?;
 
         let mut ids = Vec::new();
-        host.for_each_child_def(*id, |id, _| {
-            ids.push(id);
-        }).unwrap();
+        host.for_each_child_def(*id, |id, _| { ids.push(id); })
+            .unwrap();
 
         let ty = match def.kind {
             DefKind::Mod => String::from("module"),
@@ -174,18 +173,18 @@ pub fn create_json(host: &AnalysisHost, crate_name: &str) -> Result<String> {
 
         // Using the item's metadata we create a new `Document` type to be put in the eventual
         // serialized JSON.
-        let mut doc = 
-            Document::new()
-                .ty(ty.clone())
-                .id(def.qualname.clone())
-                .attributes(String::from("name"), def.name)
-                .attributes(String::from("docs"), def.docs);
+        let mut doc = Document::new()
+            .ty(ty.clone())
+            .id(def.qualname.clone())
+            .attributes(String::from("name"), def.name)
+            .attributes(String::from("docs"), def.docs);
 
         let mut docs = Vec::new();
 
         let child_docs: Vec<Document> = ids.into_par_iter()
             .map(|id: analysis::Id| recur(&id, host))
-            .reduce(|| Ok(Vec::new()), |a: Result<Vec<Document>>, b: Result<Vec<Document>>| {
+            .reduce(|| Ok(Vec::new()), |a: Result<Vec<Document>>,
+             b: Result<Vec<Document>>| {
                 let mut a = a?;
                 let b = b?;
 
@@ -194,14 +193,11 @@ pub fn create_json(host: &AnalysisHost, crate_name: &str) -> Result<String> {
             })?;
 
         // create child relationships
-        let relationships: Vec<_> = child_docs.iter()
-            .filter(|doc| {
-                doc.ty == "module"
-            }).map(|doc| {
-                Data::new()
-                    .ty(doc.ty.clone())
-                    .id(doc.id.clone())
-            }).collect();
+        let relationships: Vec<_> = child_docs
+            .iter()
+            .filter(|doc| doc.ty == "module")
+            .map(|doc| Data::new().ty(doc.ty.clone()).id(doc.id.clone()))
+            .collect();
 
         // if we have no children, no need to set a relationship
         if relationships.len() > 0 {
@@ -231,7 +227,10 @@ pub fn create_json(host: &AnalysisHost, crate_name: &str) -> Result<String> {
             _ => return,
         };
 
-        crate_document.relationships(relations_key, vec![Data::new().ty(ty).id(def.qualname.clone())]);
+        crate_document.relationships(
+            relations_key,
+            vec![Data::new().ty(ty).id(def.qualname.clone())],
+        );
     }).unwrap();
 
     Ok(serde_json::to_string(
