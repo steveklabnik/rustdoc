@@ -19,7 +19,6 @@ pub mod cargo;
 pub mod error;
 pub mod json;
 
-use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::prelude::*;
 use std::path::PathBuf;
@@ -94,6 +93,7 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
         let mut file = File::create(json_path)?;
         file.write_all(json.as_bytes())?;
         spinner.finish_with_message("Generating JSON: Done");
+        println!("{}", json);
     }
 
     // now that we've written out the data, we can write out the rest of it
@@ -177,8 +177,8 @@ pub fn create_json(host: &AnalysisHost, crate_name: &str) -> Result<String> {
     }
 
     let mut included: Vec<Document> = Vec::new();
-    let mut relationships: HashMap<String, Vec<Data>> = HashMap::with_capacity(METADATA_SIZE);
 
+    // then we do it for all of the included stuff
     for def in recur(&root_id, host) {
         let (ty, relations_key) = match def.kind {
             DefKind::Mod => (String::from("module"), String::from("modules")),
@@ -188,18 +188,16 @@ pub fn create_json(host: &AnalysisHost, crate_name: &str) -> Result<String> {
 
         // Using the item's metadata we create a new `Document` type to be put in the eventual
         // serialized JSON.
-        included.push(
+        let mut doc = 
             Document::new()
                 .ty(ty.clone())
                 .id(def.qualname.clone())
                 .attributes(String::from("name"), def.name)
-                .attributes(String::from("docs"), def.docs),
-        );
+                .attributes(String::from("docs"), def.docs);
 
-        let item_relationships = relationships.entry(relations_key).or_insert_with(
-            Default::default,
-        );
-        item_relationships.push(Data::new().ty(ty).id(def.qualname));
+        doc.relationships(relations_key, vec![Data::new().ty(ty).id(def.qualname)]);
+
+        included.push(doc);
     }
 
     let mut crate_document = Document::new()
@@ -207,10 +205,22 @@ pub fn create_json(host: &AnalysisHost, crate_name: &str) -> Result<String> {
         .id(crate_name.to_string())
         .attributes(String::from("docs"), root_def.docs);
 
-    // Insert all of the different types of relationships into this `Document` type only
+    // set up relationships for the crate
+    host.for_each_child_def(root_id, |_, def| {
+        let (ty, relations_key) = match def.kind {
+            DefKind::Mod => (String::from("module"), String::from("modules")),
+            DefKind::Struct => (String::from("struct"), String::from("structs")),
+            _ => return,
+        };
+
+        crate_document.relationships(relations_key, vec![Data::new().ty(ty).id(def.qualname.clone())]);
+    }).unwrap();
+
+/*    // Insert all of the different types of relationships into this `Document` type only
     for (ty, data) in relationships {
         crate_document.relationships(ty, data);
     }
+    */
 
     Ok(serde_json::to_string(
         &Documentation::new().data(crate_document).included(
