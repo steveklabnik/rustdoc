@@ -36,16 +36,15 @@ use json::*;
 pub use error::{Error, ErrorKind};
 
 /// A structure that contains various fields that hold data in order to generate doc output.
-///
-/// ## Fields
-///
-/// - `manifest_path`: Path to the directory with the `Cargo.toml` file for the crate being analyzed
-/// - `host`: Contains the Cargo analysis output for the crate being documented
-/// - `assets`: Contains all of the `Asset`s that will be output at the end (e.g. JSON, CSS, HTML
-///             and/or JS)
 pub struct Config {
+    /// Path to the directory with the `Cargo.toml` file for the crate being analyzed
     manifest_path: PathBuf,
+
+    /// Contains the Cargo analysis output for the crate being documented
     host: analysis::AnalysisHost,
+
+    /// Contains all of the `Asset`s that will be output at the end (e.g. JSON, CSS, HTML and/or
+    /// JS)
     assets: Vec<Asset>,
 }
 
