@@ -184,9 +184,9 @@ pub fn create_json(host: &AnalysisHost, crate_name: &str) -> Result<String> {
             .reduce(|| Ok(Vec::new()), |a: Result<Vec<Document>>,
              b: Result<Vec<Document>>| {
                 let mut a = a?;
-                let b = b?;
 
-                a.extend(b);
+                a.extend(b?);
+
                 Ok(a)
             })?;
 
