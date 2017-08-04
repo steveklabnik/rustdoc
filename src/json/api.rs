@@ -1,4 +1,4 @@
-//! Code used to serialize crate data to JSON. We use a subset of the JSON-API spec.
+//! JSON-API types and functions. We use a subset of the JSON-API specification.
 
 use std::collections::HashMap;
 
