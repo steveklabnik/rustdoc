@@ -61,10 +61,10 @@ pub struct Documentation {
 pub struct Document {
     #[serde(rename = "type")]
     /// The type of the item (e.g. "crate", "function", "enum", etc.)
-    ty: String,
+    pub ty: String,
 
     /// The unique identifier associated with this item
-    id: String,
+    pub id: String,
 
     /// The attributes associated with the item, like documentation or its name
     attributes: HashMap<String, String>,

@@ -158,32 +158,18 @@ pub fn create_json(host: &AnalysisHost, crate_name: &str) -> Result<String> {
 
     let root_def = host.get_def(root_id)?;
 
-    fn recur(id: &analysis::Id, host: &AnalysisHost) -> Vec<analysis::Def> {
+    fn recur(id: &analysis::Id, host: &AnalysisHost) -> Result<Vec<Document>> {
+        let def = host.get_def(*id)?;
+
         let mut ids = Vec::new();
-        let mut defs = host.for_each_child_def(*id, |id, def| {
+        host.for_each_child_def(*id, |id, _| {
             ids.push(id);
-            def.clone()
         }).unwrap();
 
-        let child_defs: Vec<analysis::Def> = ids.into_par_iter()
-            .map(|id: analysis::Id| recur(&id, host))
-            .reduce(Vec::default, |mut a: Vec<analysis::Def>,
-             b: Vec<analysis::Def>| {
-                a.extend(b);
-                a
-            });
-        defs.extend(child_defs);
-        defs
-    }
-
-    let mut included: Vec<Document> = Vec::new();
-
-    // then we do it for all of the included stuff
-    for def in recur(&root_id, host) {
-        let (ty, relations_key) = match def.kind {
-            DefKind::Mod => (String::from("module"), String::from("modules")),
-            DefKind::Struct => (String::from("struct"), String::from("structs")),
-            _ => continue,
+        let ty = match def.kind {
+            DefKind::Mod => String::from("module"),
+            DefKind::Struct => String::from("struct"),
+            _ => String::from("oh no"),
         };
 
         // Using the item's metadata we create a new `Document` type to be put in the eventual
@@ -195,10 +181,42 @@ pub fn create_json(host: &AnalysisHost, crate_name: &str) -> Result<String> {
                 .attributes(String::from("name"), def.name)
                 .attributes(String::from("docs"), def.docs);
 
-        doc.relationships(relations_key, vec![Data::new().ty(ty).id(def.qualname)]);
+        let mut docs = Vec::new();
 
-        included.push(doc);
+        let child_docs: Vec<Document> = ids.into_par_iter()
+            .map(|id: analysis::Id| recur(&id, host))
+            .reduce(|| Ok(Vec::new()), |a: Result<Vec<Document>>, b: Result<Vec<Document>>| {
+                let mut a = a?;
+                let b = b?;
+
+                a.extend(b);
+                Ok(a)
+            })?;
+
+        // create child relationships
+        let relationships: Vec<_> = child_docs.iter()
+            .filter(|doc| {
+                doc.ty == "module"
+            }).map(|doc| {
+                Data::new()
+                    .ty(doc.ty.clone())
+                    .id(doc.id.clone())
+            }).collect();
+
+        // if we have no children, no need to set a relationship
+        if relationships.len() > 0 {
+            doc.relationships(String::from("child_modules"), relationships);
+        }
+        docs.push(doc);
+
+        docs.extend(child_docs);
+        Ok(docs)
     }
+
+    let mut included = recur(&root_id, host)?;
+
+    // first one is for the crate, which we don't need
+    included.remove(0);
 
     let mut crate_document = Document::new()
         .ty(String::from("crate"))
@@ -208,19 +226,13 @@ pub fn create_json(host: &AnalysisHost, crate_name: &str) -> Result<String> {
     // set up relationships for the crate
     host.for_each_child_def(root_id, |_, def| {
         let (ty, relations_key) = match def.kind {
-            DefKind::Mod => (String::from("module"), String::from("modules")),
-            DefKind::Struct => (String::from("struct"), String::from("structs")),
+            DefKind::Mod => (String::from("module"), String::from("child_modules")),
+            DefKind::Struct => (String::from("struct"), String::from("child_structs")),
             _ => return,
         };
 
         crate_document.relationships(relations_key, vec![Data::new().ty(ty).id(def.qualname.clone())]);
     }).unwrap();
-
-/*    // Insert all of the different types of relationships into this `Document` type only
-    for (ty, data) in relationships {
-        crate_document.relationships(ty, data);
-    }
-    */
 
     Ok(serde_json::to_string(
         &Documentation::new().data(crate_document).included(
