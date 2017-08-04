@@ -25,7 +25,7 @@ use std::io::prelude::*;
 use std::path::PathBuf;
 
 use analysis::AnalysisHost;
-use analysis::raw::DefKind;
+use analysis::DefKind;
 use indicatif::ProgressBar;
 use rayon::prelude::*;
 
@@ -141,7 +141,7 @@ fn generate_and_load_analysis(config: &Config) -> Result<()> {
     let spinner = ProgressBar::new_spinner();
     spinner.enable_steady_tick(50);
     spinner.set_message("Loading save analysis data: In Progress");
-    config.host.reload(manifest_path, manifest_path, true)?;
+    config.host.reload(manifest_path, manifest_path)?;
     spinner.finish_with_message("Loading save analysis data: Done");
 
     Ok(())
