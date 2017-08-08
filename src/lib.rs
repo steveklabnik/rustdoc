@@ -30,6 +30,7 @@ use indicatif::ProgressBar;
 use rayon::prelude::*;
 
 use assets::Asset;
+use cargo::Target;
 use error::*;
 use json::*;
 
@@ -74,9 +75,9 @@ impl Config {
 /// - `config`: The `Config` struct that contains the data needed to generate the documentation
 /// - `artifacts`: A slice containing what assets should be output at the end
 pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
-    generate_and_load_analysis(config)?;
-
-    let crate_name = cargo::crate_name_from_manifest_path(&config.manifest_path)?;
+    let metadata = cargo::retrieve_metadata(&config.manifest_path)?;
+    let target = cargo::target_from_metadata(&metadata)?;
+    generate_and_load_analysis(config, &target)?;
 
     let output_path = config.manifest_path.join("target/doc");
     fs::create_dir_all(&output_path)?;
@@ -86,7 +87,7 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
         spinner.enable_steady_tick(50);
         spinner.set_message("Generating JSON: In Progress");
 
-        let json = create_json(&config.host, &crate_name)?;
+        let json = create_json(&config.host, &target.crate_name())?;
 
         let mut json_path = output_path.clone();
         json_path.push("data.json");
@@ -123,14 +124,15 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
 ///
 /// - `config`: Contains data for what needs to be output or used. In this case the path to the
 ///             `Cargo.toml` file
-fn generate_and_load_analysis(config: &Config) -> Result<()> {
+/// - `target`: The target to document
+fn generate_and_load_analysis(config: &Config, target: &Target) -> Result<()> {
     let manifest_path = &config.manifest_path;
 
     let spinner = ProgressBar::new_spinner();
     spinner.enable_steady_tick(50);
     spinner.set_message("Generating save analysis data: In Progress");
 
-    if let Err(e) = cargo::generate_analysis(manifest_path) {
+    if let Err(e) = cargo::generate_analysis(manifest_path, target) {
         spinner.finish_with_message("Generating save analysis data: Error");
         return Err(e);
     }

@@ -16,7 +16,7 @@ error_chain! {
 
         /// Thrown whenever the `JSON` grabbed from somewhere else is not what is expected.
         /// This is usually thrown when grabbing data output from `Cargo`
-        Json(location: &'static str) {
+        Json(location: String) {
             description("Unexpected JSON response")
             display("Unexpected JSON response from {}", location)
         }
