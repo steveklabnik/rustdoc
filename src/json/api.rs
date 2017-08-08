@@ -1,4 +1,4 @@
-//! Code used to serialize crate data to JSON. We use a subset of the JSON-API spec.
+//! JSON-API types and functions. We use a subset of the JSON-API specification.
 
 use std::collections::HashMap;
 
@@ -71,6 +71,7 @@ pub struct Document {
 
     /// An optional field used to show the relationship between the crate to the other items in the
     /// crate
+    #[serde(skip_serializing_if = "Option::is_none")]
     relationships: Option<HashMap<String, HashMap<String, Vec<Data>>>>,
 }
 
@@ -214,5 +215,100 @@ impl Data {
     pub fn id(mut self, id: String) -> Self {
         self.id = id;
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Data, Document, Documentation};
+
+    use serde_json;
+
+    #[test]
+    fn relationships() {
+        let mut document = Document::new();
+        assert!(document.relationships.is_none());
+
+        document.relationships(
+            "modules".into(),
+            vec![
+                Data::new().ty("module".into()).id(
+                    "example::module_one".into()
+                ),
+            ],
+        );
+
+        {
+            let relationships = &document.relationships.as_ref().unwrap()["modules"]["data"];
+            assert_eq!(relationships.len(), 1);
+            assert_eq!(&relationships[0].id, "example::module_one");
+        }
+
+        document.relationships(
+            "modules".into(),
+            vec![
+                Data::new().ty("module".into()).id(
+                    "example::module_two".into()
+                ),
+            ],
+        );
+
+        {
+            let relationships = &document.relationships.as_ref().unwrap()["modules"]["data"];
+            assert_eq!(relationships.len(), 1);
+            assert_eq!(&relationships[0].id, "example::module_two");
+        }
+    }
+
+    #[test]
+    fn serialize() {
+        let module_data = Data::new().ty("module".into()).id("example::module".into());
+        let module_data_json = json!({
+            "type": "module",
+            "id": "example::module",
+        });
+        assert_eq!(module_data_json, serde_json::to_value(&module_data).unwrap());
+
+        let mut krate = Document::new()
+            .ty("crate".into())
+            .id("example".into())
+            .attributes("docs".into(), "crate docs".into());
+
+        let module = Document::new()
+            .ty("module".into())
+            .id("example::module".into())
+            .attributes("docs".into(), "module docs".into())
+            .attributes("name".into(), "module".into());
+        let module_json = json!({
+            "type": "module",
+            "id": "example::module",
+            "attributes": {
+                "docs": "module docs",
+                "name": "module",
+            },
+        });
+        assert_eq!(serde_json::to_value(&module).unwrap(), module_json);
+
+        krate.relationships("modules".into(), vec![module_data]);
+
+        let documentation = Documentation::new().data(krate).included(vec![module]);
+        assert_eq!(
+            serde_json::to_value(&documentation).unwrap(),
+            json!({
+                "data": {
+                    "type": "crate",
+                    "id": "example",
+                    "attributes": {
+                        "docs": "crate docs",
+                    },
+                    "relationships": {
+                        "modules": {
+                            "data": [ module_data_json ]
+                        }
+                    }
+                },
+                "included": [ module_json ],
+            })
+        );
     }
 }
