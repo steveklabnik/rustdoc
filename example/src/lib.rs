@@ -44,3 +44,14 @@ pub mod nested1 {
         }
     }
 }
+
+/// other nested 1
+pub mod other_nested1 {
+    /// other nested 2
+    pub mod other_nested2 {
+        /// nested 3
+        pub mod other_nested3 {
+
+        }
+    }
+}
