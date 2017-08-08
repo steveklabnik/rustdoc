@@ -8,6 +8,8 @@ extern crate clap;
 use clap::{App, Arg, SubCommand};
 
 use rustdoc::{Config, build};
+use rustdoc::cargo;
+use rustdoc::error::Result;
 
 use std::io::{Write, stderr};
 use std::process;
@@ -48,21 +50,40 @@ fn main() {
     // unwrap is okay because we take a default value
     let manifest_path = PathBuf::from(&matches.value_of("manifest-path").unwrap());
     let assets = include!(concat!(env!("OUT_DIR"), "/asset.in"));
-    let config = Config::new(manifest_path, assets).unwrap_or_else(|err| {
-        println!("Problem creating configuration: {}", err);
+
+    let paths = cargo::workspace_members_from_metadata(&manifest_path).unwrap_or_else(|err| {
+        println!("Problem getting workspace_members: {}", err);
         process::exit(1);
     });
+    let mut configs = Vec::new();
 
-    let result = match matches.subcommand() {
-        ("build", Some(matches)) => {
-            let artifacts: Vec<&str> = matches.values_of("artifacts").unwrap().collect();
-            build(&config, &artifacts)
+    for path in paths.into_iter().map(|x| PathBuf::from(x)) {
+        configs.push(Config::new(path, assets.clone()).unwrap_or_else(|err| {
+            println!("Problem creating configuration: {}", err);
+            process::exit(1);
+        }));
+    }
+
+    let result = move | | -> Result<()> {
+        match matches.subcommand() {
+            ("build", Some(matches)) => {
+                let artifacts: Vec<&str> = matches.values_of("artifacts").unwrap().collect();
+                for config in configs {
+                    build(&config, &artifacts)?;
+                }
+                Ok(())
+            }
+            // default is to build
+            _ => {
+                for config in configs {
+                    build(&config, ALL_ARTIFACTS)?;
+                }
+                Ok(())
+            }
         }
-        // default is to build
-        _ => build(&config, ALL_ARTIFACTS),
     };
 
-    if let Err(ref e) = result {
+    if let Err(ref e) = result() {
         let stderr = &mut stderr();
         let errmsg = "Error writing to stderr";
 
