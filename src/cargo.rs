@@ -1,8 +1,11 @@
 //! Functions for retrieving package data from `cargo`.
 
+use std::io::BufReader;
+use std::io::prelude::*;
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
 
+use indicatif::ProgressBar;
 use serde_json;
 
 use error::*;
@@ -74,7 +77,11 @@ pub fn retrieve_metadata(manifest_path: &Path) -> Result<serde_json::Value> {
 ///
 /// - `manifest_path`: The path containing the `Cargo.toml` of the crate
 /// - `target`: The target that we should generate the analysis data for
-pub fn generate_analysis(manifest_path: &Path, target: &Target) -> Result<()> {
+pub fn generate_analysis(
+    manifest_path: &Path,
+    target: &Target,
+    progress: &ProgressBar,
+) -> Result<()> {
     let mut command = Command::new("cargo");
 
     command
@@ -82,7 +89,9 @@ pub fn generate_analysis(manifest_path: &Path, target: &Target) -> Result<()> {
         .arg("--manifest-path")
         .arg(manifest_path.join("Cargo.toml"))
         .env("RUSTFLAGS", "-Z save-analysis")
-        .env("CARGO_TARGET_DIR", manifest_path.join("target/rls"));
+        .env("CARGO_TARGET_DIR", manifest_path.join("target/rls"))
+        .stderr(Stdio::piped())
+        .stdout(Stdio::null());
 
     match target.kind {
         TargetKind::Library => {
@@ -93,15 +102,40 @@ pub fn generate_analysis(manifest_path: &Path, target: &Target) -> Result<()> {
         }
     }
 
-    let output = command.output()?;
+    let mut child = command.spawn()?;
 
-    if !output.status.success() {
-        return Err(
-            ErrorKind::Cargo(
-                output.status,
-                String::from_utf8_lossy(&output.stderr).into_owned(),
-            ).into(),
-        );
+    // Keep all stderr output in a buffer, in case we need to report it in the error.
+    let mut stderr = String::new();
+
+    // Display progress to the user.
+    if let Some(ref mut out) = child.stderr {
+        let out = BufReader::new(out);
+        for line in out.lines() {
+            let line = line?;
+            stderr.push_str(&line);
+
+            let line = line.trim();
+
+            // Filter out lines that the user shouldn't see.
+            //
+            // `cargo check` will print any warnings and errors in the crate. Additionally,
+            // `-Zsave-analysis` sometimes prints internal errors to stderr.
+            //
+            // We don't want to display any of these messages to the user, so we whitelist certain
+            // cargo messages. Alternatively, we could use the JSON message format to filter, but
+            // that is probably overkill.
+            if line.starts_with("Updating") || line.starts_with("Compiling") ||
+                line.starts_with("Finished")
+            {
+                progress.set_message(line);
+            }
+        }
+    }
+
+    let status = child.wait()?;
+
+    if !status.success() {
+        bail!(ErrorKind::Cargo(status, stderr));
     }
 
     Ok(())
