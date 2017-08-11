@@ -1,5 +1,6 @@
 //! Functions used to generate the documentation for Rust Crates.
 
+#![warn(missing_debug_implementations)]
 #![warn(missing_docs)]
 
 #[macro_use]
@@ -34,6 +35,7 @@ use error::*;
 pub use error::{Error, ErrorKind};
 
 /// A structure that contains various fields that hold data in order to generate doc output.
+#[derive(Debug)]
 pub struct Config {
     /// Path to the directory with the `Cargo.toml` file for the crate being analyzed
     manifest_path: PathBuf,
