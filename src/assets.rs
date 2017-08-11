@@ -8,6 +8,7 @@ use error::*;
 
 /// Static assets compiled into the binary so we get a single executable. These are dynamically
 /// generated with the build script based off of items in the `frontend/dist` folder.
+#[derive(Debug)]
 pub struct Asset {
     /// Relative path of the file
     pub name: &'static str,
