@@ -71,7 +71,7 @@ impl Config {
 
     /// Open the generated docs in a web browser.
     pub fn open_docs(&self) -> Result<()> {
-        open::that(self.output_path().join("index.html")).unwrap(); // TODO: Error handling
+        open::that(self.output_path().join("index.html"))?;
         Ok(())
     }
 }
