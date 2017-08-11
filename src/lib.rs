@@ -10,6 +10,7 @@ extern crate serde_derive;
 extern crate serde_json;
 
 extern crate indicatif;
+extern crate open;
 extern crate rayon;
 extern crate rls_analysis as analysis;
 extern crate serde;
@@ -66,6 +67,12 @@ impl Config {
     /// Returns the directory where output files should be placed
     pub fn output_path(&self) -> PathBuf {
         self.manifest_path.join("target").join("doc")
+    }
+
+    /// Open the generated docs in a web browser.
+    pub fn open_docs(&self) -> Result<()> {
+        open::that(self.output_path().join("index.html")).unwrap(); // TODO: Error handling
+        Ok(())
     }
 }
 

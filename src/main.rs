@@ -43,6 +43,9 @@ fn main() {
                         .help("Build artifacts to produce. Defaults to everything."),
                 ),
         )
+        .subcommand(SubCommand::with_name("open").about(
+            "opens the documentation in a web browser",
+        ))
         .get_matches();
 
     // unwrap is okay because we take a default value
@@ -57,6 +60,15 @@ fn main() {
         ("build", Some(matches)) => {
             let artifacts: Vec<&str> = matches.values_of("artifacts").unwrap().collect();
             build(&config, &artifacts)
+        }
+        ("open", _) => {
+            // First build the docs if they are not yet built.
+            let build_result = if config.output_path().exists() {
+                Ok(())
+            } else {
+                build(&config, ALL_ARTIFACTS)
+            };
+            build_result.and_then(|_| config.open_docs())
         }
         // default is to build
         _ => build(&config, ALL_ARTIFACTS),
