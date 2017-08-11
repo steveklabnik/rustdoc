@@ -41,7 +41,10 @@ fn run() -> rustdoc::error::Result<()> {
                         .possible_values(ALL_ARTIFACTS)
                         .default_value(&joined_artifacts)
                         .help("Build artifacts to produce. Defaults to everything."),
-                ),
+                )
+                .arg(Arg::with_name("open").short("o").long("open").help(
+                    "Open the docs in a web browser after building.",
+                )),
         )
         .subcommand(SubCommand::with_name("open").about(
             "opens the documentation in a web browser",
@@ -57,6 +60,9 @@ fn run() -> rustdoc::error::Result<()> {
         ("build", Some(matches)) => {
             let artifacts: Vec<&str> = matches.values_of("artifacts").unwrap().collect();
             build(&config, &artifacts)?;
+            if matches.is_present("open") {
+                config.open_docs()?;
+            }
         }
         ("open", _) => {
             // First build the docs if they are not yet built.
