@@ -67,9 +67,9 @@ fn main() {
 fn acquire_assets() -> Result<Vec<Asset>> {
     let mut output: Vec<Asset> = Vec::new();
     let whitelist = vec![
-        "assets/**",
+        "assets/**/*",
         "crossdomain.xml",
-        "ember-fetch/**",
+        "ember-fetch/**/*",
         "index.html",
         "robots.txt",
     ];
