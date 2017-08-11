@@ -2,7 +2,5 @@
 
 //! Crate docs
 
-// @has data.type 'crate'
-// @has data.id 'crates'
-
-// @has data.attributes.docs 'Crate docs'
+// @has 'data.[type, id]' '["crate", "crates"]'
+// @has 'data.attributes.docs | contains(@, `"Crate docs"`)'

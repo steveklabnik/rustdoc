@@ -1,17 +1,47 @@
 //! Source-based integration tests.
 //!
-//! This file contains a test that will run `rustdoc` on every file in the `tests/source`
-//! directory, and compare `rustdoc`'s JSON output with comments in the source that indicate the
-//! expected output.
+//! This file contains tests that will run `rustdoc` on every file in the `tests/source` directory,
+//! and compare `rustdoc`'s JSON output with comments in the source that indicate the expected
+//! output. A test is generated for every file in the `source` directory.
+//!
+//! These special comments, or directives, start with an `@` symbol and an identifier. They are
+//! followed by a number of arguments. Each argument is space-separated, but arguments may contains
+//! spaces if they are quoted by using single quotes. For convenience, an argument that is
+//! surrounded by double quotes is considered quoted, but the double quotes *will* appear in the
+//! output. Quotes inside the argument may be escaped with `\`.
 //!
 //! Supported directives:
 //!
 //! ```ignore
-//! // @has <JMESPath> '<Regular expression>'
+//! // @has <JMESPath> [<JSON expression>]
+//! // @!has <JMESPath> [<JSON expression>]
 //! ```
 //!
-//! This directive requires that a [JMESPath] query evaluated against the JSON output returns a
-//! string that matches the regular expression.
+//! ## @has
+//!
+//! This directive requires that a [`JMESPath`][JMESPath] query evaluated against the JSON output
+//! matches a particular JSON expression. If the directive starts with a `!`, then the test passes
+//! if the query result does _not_ match the expression.
+//!
+//! The JSON expression syntax uses double quotes to distinguish between strings and identifiers.
+//!
+//! ```ignore
+//! true -> Value::Bool(true)
+//! "true" -> Value::String(true)
+//! { "value": "true" } -> Value::Object(..)
+//! ```
+//! For example, testing the result of a JMESPath expression against an object would look like this:
+//!
+//! ```no_run
+//! // @has some.value '{ "docs": "Hello, world!" }``
+//! ```
+//!
+//! If no expression argument is provided, then the argument is assumed to be `true`. This is
+//! useful for calling functions:
+//!
+//! ```no_run
+//! // @has 'data.attributes.docs | contains(@, `"the documentation"`)'
+//! ```
 //!
 //! [JMESPath]: http://jmespath.org/
 
@@ -25,10 +55,8 @@ extern crate lazy_static;
 extern crate serde_json;
 
 extern crate jmespath;
-extern crate jsonapi;
 extern crate regex;
 extern crate rls_analysis as analysis;
-extern crate shlex;
 extern crate tempdir;
 
 use std::fs::{self, File};
@@ -40,6 +68,7 @@ use std::process::Command;
 use analysis::{AnalysisHost, Target};
 use jmespath::{Expression, Variable};
 use regex::Regex;
+use serde_json::Value;
 
 error_chain! {
     foreign_links {
@@ -63,9 +92,9 @@ error_chain! {
             description("JMESPath matched no data")
             display("JMESPath '{}' matched no data", expr)
         }
-        ValueMismatch(value: String, re: String) {
-            description("The value did not match the regular expression")
-            display("The value '{}' did not match the regular expression '{}'", value, re)
+        ValueMismatch(result: String, value: String) {
+            description("The query result did not match the value")
+            display("The query result '{}' did not match the value '{}'", result, value)
         }
         ValueType(json: String) {
             description("The JMESPath did not evaluate to a string")
@@ -78,7 +107,7 @@ error_chain! {
 #[derive(Debug)]
 struct TestCase {
     jmespath: Expression<'static>,
-    regex: Regex,
+    json: Value,
     negated: bool,
 }
 
@@ -195,24 +224,86 @@ fn parse_test(line: &str) -> Option<Result<TestCase>> {
     }
 }
 
+/// Splits an argument string into multiple arguments.
+///
+/// The splitting is a little quirky, because we want to allow writing unquoted JSON strings.
+/// Individual arguments may be quoted using `'` or `"`. If an argument must contain a quote, it
+/// may be escaped with `\`. Unescaped single quotes will be removed from the output, while double
+/// quotes will not.
+fn split_args(args: &str) -> Result<Vec<String>> {
+    let mut current_arg = String::new();
+    let mut quoted = false;
+    let mut double_quoted = false;
+    let mut escaped = false;
+    let mut split_args = vec![];
+
+    for c in args.chars() {
+        match c {
+            '\'' if !double_quoted => {
+                if escaped {
+                    current_arg.push(c);
+                    escaped = false;
+                } else {
+                    if quoted {
+                        split_args.push(current_arg);
+                        current_arg = String::new();
+                    }
+                    quoted = !quoted;
+                }
+            }
+            '\"' if !quoted => {
+                escaped = false;
+                double_quoted = !double_quoted;
+                current_arg.push(c);
+            }
+            '\\' if escaped => {
+                escaped = false;
+                current_arg.push(c);
+            }
+            '\\' => escaped = true,
+            ' ' if !quoted && !double_quoted => {
+                if !current_arg.is_empty() {
+                    split_args.push(current_arg);
+                    current_arg = String::new();
+                }
+            }
+            _ => current_arg.push(c),
+        }
+    }
+
+    if quoted {
+        bail!("Unclosed quote");
+    }
+
+    if escaped {
+        bail!("Unclosed escape");
+    }
+
+    if !current_arg.is_empty() {
+        split_args.push(current_arg);
+    }
+
+    Ok(split_args)
+}
+
 fn parse_directive(directive: &str, args: &str, negated: bool) -> Result<TestCase> {
-    let args = match shlex::split(args) {
-        Some(args) => args,
-        None => bail!("Could not split directive arguments"),
-    };
+    let args = split_args(args)?;
 
     match directive {
         "has" => {
-            if args.len() != 2 {
+            if args.len() < 1 {
                 bail!("Not enough arguments");
             }
 
             let jmespath = jmespath::compile(&args[0]).chain_err(|| "invalid JMESPath")?;
-            let regex = Regex::new(&args[1])?;
+            let json = args.get(1)
+                .map(|json| serde_json::from_str(json))
+                .unwrap_or_else(|| Ok(Value::Bool(true)))
+                .chain_err(|| "invalid JSON")?;
 
             Ok(TestCase {
                 jmespath,
-                regex,
+                json,
                 negated,
             })
         }
@@ -224,31 +315,28 @@ fn parse_directive(directive: &str, args: &str, negated: bool) -> Result<TestCas
 
 /// Runs a test case. Returns `Ok(())` if the test passes, otherwise returns the reason the test
 /// failed.
-fn run_test(json: &serde_json::Value, case: TestCase) -> Result<()> {
-    let variable = case.jmespath.search(json)?;
+fn run_test(rustdoc_output: &serde_json::Value, case: TestCase) -> Result<()> {
+    let search_result = case.jmespath.search(rustdoc_output)?;
 
-    let value = match *variable {
-        Variable::String(ref s) => s,
-        Variable::Null => bail!(ErrorKind::NullValue(case.jmespath.as_str().to_owned())),
-        ref variable => bail!(ErrorKind::ValueType(variable.to_string())),
-    };
+    if let Variable::Null = *search_result {
+        bail!(ErrorKind::NullValue(case.jmespath.as_str().into()));
+    }
 
-    if case.regex.is_match(value) == !case.negated {
-        Ok(())
-    } else {
+    let json: Variable = case.json.into();
+    if case.negated != (*search_result != json) {
         bail!(ErrorKind::ValueMismatch(
-            value.to_owned(),
-            case.regex.as_str().to_owned(),
+            search_result.to_string(),
+            json.to_string(),
         ));
     }
+
+    Ok(())
 }
 
 // Tests generated from the files in tests/source
 include!(concat!(env!("OUT_DIR"), "/source_generated.rs"));
 
 mod source_tests {
-    #![cfg_attr(feature = "cargo-clippy", allow(trivial_regex))]
-
     use super::*;
 
     macro_rules! assert_err {
@@ -261,29 +349,103 @@ mod source_tests {
     }
 
     #[test]
+    fn split_args() {
+        let args = super::split_args("hello").unwrap();
+        assert_eq!(args, vec![String::from("hello")]);
+
+        let args = super::split_args("'hello'").unwrap();
+        assert_eq!(args, vec![String::from("hello")]);
+
+        let args = super::split_args(r#""hello""#).unwrap();
+        assert_eq!(args, vec![String::from(r#""hello""#)]);
+
+        let args = super::split_args(r#"'"hello"'"#).unwrap();
+        assert_eq!(args, vec![String::from(r#""hello""#)]);
+
+        let args = super::split_args(r#""hello world""#).unwrap();
+        assert_eq!(args, vec![String::from(r#""hello world""#)]);
+
+        let args = super::split_args("one two three").unwrap();
+        assert_eq!(
+            args,
+            vec![
+                String::from("one"),
+                String::from("two"),
+                String::from("three"),
+            ]
+        );
+
+        let args = super::split_args(r"back\\slash").unwrap();
+        assert_eq!(args, vec![String::from(r"back\slash")]);
+
+        let args = super::split_args("one 'two three'").unwrap();
+        assert_eq!(args, vec![String::from("one"), String::from("two three")]);
+
+        let args = super::split_args(r"one 'two\'s three'").unwrap();
+        assert_eq!(args, vec![String::from("one"), String::from("two's three")]);
+
+        super::split_args("one 'two").unwrap_err();
+
+        super::split_args(r"one \").unwrap_err();
+
+        assert_eq!(super::split_args("").unwrap(), Vec::<String>::new());
+        assert_eq!(super::split_args(" ").unwrap(), Vec::<String>::new());
+
+        assert_eq!(
+            super::split_args("'' ''").unwrap(),
+            vec![String::from(""), String::from("")]
+        );
+    }
+
+    #[test]
     fn parse_test() {
-        let test = super::parse_test("// @has test 'value'").unwrap().unwrap();
+        let test = super::parse_test(r#"// @has test "value""#)
+            .unwrap()
+            .unwrap();
         assert_eq!(test.jmespath.as_str(), "test");
-        assert_eq!(test.regex.as_str(), "value");
+        assert_eq!(test.json, json!("value"));
         assert!(!test.negated);
 
-        let test = super::parse_test("// @has included[0].attributes 'a module'")
+        let test = super::parse_test(r#"// @!has test '"value"'"#)
+            .unwrap()
+            .unwrap();
+        assert_eq!(test.jmespath.as_str(), "test");
+        assert_eq!(test.json, json!("value"));
+        assert!(test.negated);
+
+        let test = super::parse_test(r#"// @has 'test' "it\'s escaped""#)
+            .unwrap()
+            .unwrap();
+        assert_eq!(test.jmespath.as_str(), "test");
+        assert_eq!(test.json, json!("it's escaped"));
+
+        let test = super::parse_test(r#"// @has included[0].attributes "a module""#)
             .unwrap()
             .unwrap();
         assert_eq!(test.jmespath.as_str(), "included[0].attributes");
-        assert_eq!(test.regex.as_str(), "a module");
-        assert!(!test.negated);
+        assert_eq!(test.json, json!("a module"));
 
         let test = super::parse_test(
-            r#"// @has 'some[?test == "value"].val | sort(@)' 'complex JMESPath'"#,
+            r#"// @has 'some[?test == "value"].val | sort(@)' "complex JMESPath""#,
         ).unwrap()
             .unwrap();
         assert_eq!(
             test.jmespath.as_str(),
             r#"some[?test == "value"].val | sort(@)"#
         );
-        assert_eq!(test.regex.as_str(), "complex JMESPath");
-        assert!(!test.negated);
+        assert_eq!(test.json, json!("complex JMESPath"));
+
+        let test = super::parse_test(r#"// @has 'assume.bool'"#)
+            .unwrap()
+            .unwrap();
+        assert_eq!(test.jmespath.as_str(), "assume.bool");
+        assert_eq!(test.json, json!(true));
+
+        let test = super::parse_test(r#"// @has complex '{ "complex": "json" }'"#)
+            .unwrap()
+            .unwrap();
+        assert_eq!(test.jmespath.as_str(), "complex");
+        assert_eq!(test.json, json!({ "complex": "json" }));
 
         assert!(super::parse_test(r#"fn main() { println!("no test case"); }"#).is_none());
 
@@ -311,7 +473,7 @@ mod source_tests {
             &json,
             TestCase {
                 jmespath: jmespath::compile("test").unwrap(),
-                regex: Regex::new("value").unwrap(),
+                json: json!("value"),
                 negated: false,
             },
         ).unwrap();
@@ -320,7 +482,7 @@ mod source_tests {
             &json,
             TestCase {
                 jmespath: jmespath::compile("test").unwrap(),
-                regex: Regex::new("nonexistent").unwrap(),
+                json: json!("nonexistent"),
                 negated: true,
             },
         ).unwrap();
@@ -329,7 +491,7 @@ mod source_tests {
             &json,
             TestCase {
                 jmespath: jmespath::compile("test").unwrap(),
-                regex: Regex::new("wrong value").unwrap(),
+                json: json!("wrong value"),
                 negated: false,
             },
         ).unwrap_err();
@@ -339,7 +501,7 @@ mod source_tests {
             &json,
             TestCase {
                 jmespath: jmespath::compile("nonexistent").unwrap(),
-                regex: Regex::new("value").unwrap(),
+                json: json!("value"),
                 negated: false,
             },
         ).unwrap_err();
