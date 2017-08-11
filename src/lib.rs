@@ -11,6 +11,7 @@ extern crate serde_derive;
 extern crate serde_json;
 
 extern crate indicatif;
+extern crate open;
 extern crate rayon;
 extern crate rls_analysis as analysis;
 extern crate serde;
@@ -64,6 +65,17 @@ impl Config {
             assets,
         })
     }
+
+    /// Returns the directory where output files should be placed
+    pub fn output_path(&self) -> PathBuf {
+        self.manifest_path.join("target").join("doc")
+    }
+
+    /// Open the generated docs in a web browser.
+    pub fn open_docs(&self) -> Result<()> {
+        open::that(self.output_path().join("index.html"))?;
+        Ok(())
+    }
 }
 
 /// Generate documentation for a crate. This can be tuned to output JSON and/or Web assets to view
@@ -78,7 +90,7 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
     let target = cargo::target_from_metadata(&metadata)?;
     generate_and_load_analysis(config, &target)?;
 
-    let output_path = config.manifest_path.join("target/doc");
+    let output_path = config.output_path();
     fs::create_dir_all(&output_path)?;
 
     if artifacts.contains(&"json") {
@@ -88,9 +100,7 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
 
         let json = create_json(&config.host, &target.crate_name())?;
 
-        let mut json_path = output_path.clone();
-        json_path.push("data.json");
-
+        let json_path = output_path.join("data.json");
         let mut file = File::create(json_path)?;
         file.write_all(json.as_bytes())?;
         spinner.finish_with_message("Done");
@@ -102,8 +112,7 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
         spinner.set_prefix("Copying Assets");
         spinner.set_message("In Progress");
 
-        let mut assets_path = output_path.clone();
-        assets_path.push("assets");
+        let assets_path = output_path.join("assets");
         fs::create_dir_all(&assets_path)?;
 
         for asset in &config.assets {

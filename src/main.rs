@@ -15,7 +15,7 @@ use std::path::PathBuf;
 
 static ALL_ARTIFACTS: &[&str] = &["assets", "json"];
 
-fn main() {
+fn run() -> rustdoc::error::Result<()> {
     let version = env!("CARGO_PKG_VERSION");
 
     let joined_artifacts = ALL_ARTIFACTS.join(",");
@@ -41,28 +41,44 @@ fn main() {
                         .possible_values(ALL_ARTIFACTS)
                         .default_value(&joined_artifacts)
                         .help("Build artifacts to produce. Defaults to everything."),
-                ),
+                )
+                .arg(Arg::with_name("open").short("o").long("open").help(
+                    "Open the docs in a web browser after building.",
+                )),
         )
+        .subcommand(SubCommand::with_name("open").about(
+            "opens the documentation in a web browser",
+        ))
         .get_matches();
 
     // unwrap is okay because we take a default value
     let manifest_path = PathBuf::from(&matches.value_of("manifest-path").unwrap());
     let assets = include!(concat!(env!("OUT_DIR"), "/asset.in"));
-    let config = Config::new(manifest_path, assets).unwrap_or_else(|err| {
-        println!("Problem creating configuration: {}", err);
-        process::exit(1);
-    });
+    let config = Config::new(manifest_path, assets)?;
 
-    let result = match matches.subcommand() {
+    match matches.subcommand() {
         ("build", Some(matches)) => {
             let artifacts: Vec<&str> = matches.values_of("artifacts").unwrap().collect();
-            build(&config, &artifacts)
+            build(&config, &artifacts)?;
+            if matches.is_present("open") {
+                config.open_docs()?;
+            }
+        }
+        ("open", _) => {
+            // First build the docs if they are not yet built.
+            if !config.output_path().exists() {
+                build(&config, ALL_ARTIFACTS)?;
+            }
+            config.open_docs()?;
         }
         // default is to build
-        _ => build(&config, ALL_ARTIFACTS),
-    };
+        _ => build(&config, ALL_ARTIFACTS)?,
+    }
+    Ok(())
+}
 
-    if let Err(ref e) = result {
+fn main() {
+    if let Err(ref e) = run() {
         let stderr = &mut stderr();
         let errmsg = "Error writing to stderr";
 
