@@ -27,7 +27,7 @@ fn run() -> rustdoc::error::Result<()> {
             Arg::with_name("manifest-path")
                 .long("manifest-path")
                 // remove the unwrap in Config::new if this default_value goes away
-                .default_value(".")
+                .default_value("./Cargo.toml")
                 .help("The path to the Cargo manifest of the project you are documenting."),
         )
         .subcommand(

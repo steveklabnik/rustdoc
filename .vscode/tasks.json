@@ -17,7 +17,7 @@
             "args": [
                 "run",
                 "--",
-                "--manifest-path=example",
+                "--manifest-path=example/Cargo.toml",
                 "build"
             ]
         },
