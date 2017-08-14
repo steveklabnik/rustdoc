@@ -48,12 +48,12 @@ impl Target {
 ///
 /// ## Arguments
 ///
-/// - `manifest_path`: The path containing the `Cargo.toml` of the crate
+/// - `manifest_path`: The path to the crate's `Cargo.toml`
 pub fn retrieve_metadata(manifest_path: &Path) -> Result<serde_json::Value> {
     let output = Command::new("cargo")
         .arg("metadata")
         .arg("--manifest-path")
-        .arg(manifest_path.join("Cargo.toml"))
+        .arg(manifest_path)
         .arg("--no-deps")
         .arg("--format-version")
         .arg("1")
@@ -75,7 +75,7 @@ pub fn retrieve_metadata(manifest_path: &Path) -> Result<serde_json::Value> {
 ///
 /// ## Arguments
 ///
-/// - `manifest_path`: The path containing the `Cargo.toml` of the crate
+/// - `manifest_path`: The path to the crate's Cargo.toml
 /// - `target`: The target that we should generate the analysis data for
 pub fn generate_analysis(
     manifest_path: &Path,
@@ -84,12 +84,17 @@ pub fn generate_analysis(
 ) -> Result<()> {
     let mut command = Command::new("cargo");
 
+    let target_dir = manifest_path
+        .parent()
+        .ok_or("Expected manifest_path to point to Cargo.toml")?
+        .join("target/rls");
+
     command
         .arg("check")
         .arg("--manifest-path")
-        .arg(manifest_path.join("Cargo.toml"))
+        .arg(manifest_path)
         .env("RUSTFLAGS", "-Z save-analysis")
-        .env("CARGO_TARGET_DIR", manifest_path.join("target/rls"))
+        .env("CARGO_TARGET_DIR", target_dir)
         .stderr(Stdio::piped())
         .stdout(Stdio::null());
 

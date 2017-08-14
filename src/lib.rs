@@ -25,7 +25,7 @@ pub use json::create_json;
 
 use std::fs::{self, File};
 use std::io::prelude::*;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use indicatif::{ProgressBar, ProgressStyle};
 
@@ -38,7 +38,7 @@ pub use error::{Error, ErrorKind};
 /// A structure that contains various fields that hold data in order to generate doc output.
 #[derive(Debug)]
 pub struct Config {
-    /// Path to the directory with the `Cargo.toml` file for the crate being analyzed
+    /// Path to the `Cargo.toml` file for the crate being analyzed
     manifest_path: PathBuf,
 
     /// Contains the Cargo analysis output for the crate being documented
@@ -55,9 +55,13 @@ impl Config {
     ///
     /// ## Arguments
     ///
-    /// - `manifest_path`: The path to the location of `Cargo.toml` of the crate being documented
+    /// - `manifest_path`: The path to the `Cargo.toml` of the crate being documented
     pub fn new(manifest_path: PathBuf, assets: Vec<Asset>) -> Result<Config> {
         let host = analysis::AnalysisHost::new(analysis::Target::Debug);
+
+        if !manifest_path.is_file() || !manifest_path.ends_with("Cargo.toml") {
+            bail!("The --manifest-path must be a path to a Cargo.toml file");
+        }
 
         Ok(Config {
             manifest_path,
@@ -66,9 +70,15 @@ impl Config {
         })
     }
 
+    /// Returns the directory containing the `Cargo.toml` of the crate being documented.
+    pub fn root_path(&self) -> &Path {
+        // unwrap() is safe, as manifest_path will point to a file
+        self.manifest_path.parent().unwrap()
+    }
+
     /// Returns the directory where output files should be placed
     pub fn output_path(&self) -> PathBuf {
-        self.manifest_path.join("target").join("doc")
+        self.root_path().join("target").join("doc")
     }
 
     /// Open the generated docs in a web browser.
@@ -160,7 +170,8 @@ fn generate_and_load_analysis(config: &Config, target: &Target) -> Result<()> {
     let spinner = create_spinner();
     spinner.set_prefix("Loading save analysis data");
     spinner.set_message("In Progress");
-    config.host.reload(manifest_path, manifest_path)?;
+    let root_path = config.root_path();
+    config.host.reload(root_path, root_path)?;
     spinner.finish_with_message("Done");
 
     Ok(())

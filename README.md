@@ -59,7 +59,7 @@ those generated files.
 Currently, it only builds the given example. Do it as follow:
 
 ```
-cargo run --release -- --manifest-path=example
+cargo run --release -- --manifest-path=example/Cargo.toml
 ```
 
 Then open a web browser and open "rustdoc/example/target/doc/index.html".

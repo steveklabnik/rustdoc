@@ -10,9 +10,10 @@ mod validation_tests {
 
     #[test]
     fn json_fmt_test() {
-        let config = Config::new(PathBuf::from("example"), vec![]).unwrap_or_else(|err| {
-            panic!("Couldn't create the config: {}", err);
-        });
+        let config = Config::new(PathBuf::from("example/Cargo.toml"), vec![])
+            .unwrap_or_else(|err| {
+                panic!("Couldn't create the config: {}", err);
+            });
 
         build(&config, &["json"]).unwrap_or_else(|err| {
             panic!("Error: {}", err);

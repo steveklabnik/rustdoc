@@ -127,8 +127,8 @@ try to build docs for. For example, if you were going to build the docs for
 the `example` crate, located in this repo, you'd type this:
 
 ```bash
-> cargo run -- --manifest-path=example build
+> cargo run -- --manifest-path=example/Cargo.toml build
 ```
 
 "build" is the subcommand to build the docs, and `--manifest-path` should point
-to a directory where a `Cargo.toml` lives.
+to a `Cargo.toml`.
