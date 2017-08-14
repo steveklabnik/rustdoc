@@ -1,5 +1,7 @@
 # rustdoc
 
+[![Build Status](https://travis-ci.org/steveklabnik/rustdoc.svg?branch=master)](https://travis-ci.org/steveklabnik/rustdoc) [![Windows build status](https://ci.appveyor.com/api/projects/status/github/steveklabnik/rustdoc?svg=true)](https://ci.appveyor.com/project/steveklabnik/rustdoc)
+
 A tool for documenting Rust.
 
 > *NOTE*: This is not the "real" `rustdoc`. This is a prototype of a possible
