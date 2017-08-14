@@ -51,6 +51,9 @@ We have several tags for issues:
 * **refactoring** issues track work we can do to clean up the code a bit.
 * **blocked on upstream** means that this bug is waiting on something in another
   repository; that might be the compiler, `rls-analysis`, or something else.
+* **E-Easy** issues that are easy or simple. They're great for a first pull request!
+* **E-Medium** issues that are a little more complicated or take a little more work than ones marked easy.
+* **E-Hard** issues that are difficult or take a lot of work.
 
 ## Frontend Development Workflow
 
