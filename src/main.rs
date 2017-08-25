@@ -30,6 +30,9 @@ fn run() -> rustdoc::error::Result<()> {
                 .default_value("./Cargo.toml")
                 .help("The path to the Cargo manifest of the project you are documenting."),
         )
+        .arg(Arg::with_name("quiet").short("q").long("quiet").help(
+            "No output printed to stdout.",
+        ))
         .subcommand(
             SubCommand::with_name("build")
                 .about("generates documentation")
@@ -54,7 +57,7 @@ fn run() -> rustdoc::error::Result<()> {
     // unwrap is okay because we take a default value
     let manifest_path = PathBuf::from(&matches.value_of("manifest-path").unwrap());
     let assets = include!(concat!(env!("OUT_DIR"), "/asset.in"));
-    let config = Config::new(manifest_path, assets)?;
+    let config = Config::new(matches.is_present("quiet"), manifest_path, assets)?;
 
     match matches.subcommand() {
         ("build", Some(matches)) => {

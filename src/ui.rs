@@ -3,12 +3,22 @@ use std::fmt::{self, Debug};
 
 use indicatif::{ProgressBar, ProgressStyle};
 
-#[derive(Debug)]
-pub struct Ui;
+#[derive(Debug, Default)]
+pub struct Ui {
+    quiet: bool,
+}
 
 impl Ui {
+    pub fn new(quiet: bool) -> Ui {
+        Ui { quiet }
+    }
+
     pub fn start_task(&self, name: &str) -> Task {
-        let spinner = ProgressBar::new_spinner();
+        let spinner = if self.quiet {
+            ProgressBar::hidden()
+        } else {
+            ProgressBar::new_spinner()
+        };
 
         spinner.enable_steady_tick(50);
         spinner.set_style(ProgressStyle::default_spinner().template(
@@ -25,7 +35,9 @@ impl Ui {
     }
 
     pub fn warn(&self, message: &str) {
-        eprintln!("warning: {}", message);
+        if !self.quiet {
+            eprintln!("warning: {}", message);
+        }
     }
 }
 

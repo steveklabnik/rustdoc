@@ -60,7 +60,7 @@ impl Config {
     /// ## Arguments
     ///
     /// - `manifest_path`: The path to the `Cargo.toml` of the crate being documented
-    pub fn new(manifest_path: PathBuf, assets: Vec<Asset>) -> Result<Config> {
+    pub fn new(quiet: bool, manifest_path: PathBuf, assets: Vec<Asset>) -> Result<Config> {
         let host = analysis::AnalysisHost::new(analysis::Target::Debug);
 
         if !manifest_path.is_file() || !manifest_path.ends_with("Cargo.toml") {
@@ -68,7 +68,7 @@ impl Config {
         }
 
         Ok(Config {
-            ui: Ui,
+            ui: Ui::new(quiet),
             manifest_path,
             host,
             assets,

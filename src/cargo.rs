@@ -225,7 +225,7 @@ mod tests {
 
     #[test]
     fn target_from_metadata() {
-        let ui = Ui;
+        let ui = Ui::default();
 
         let metadata = json!({
             "packages": [

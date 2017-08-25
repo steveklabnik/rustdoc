@@ -10,7 +10,7 @@ mod validation_tests {
 
     #[test]
     fn json_fmt_test() {
-        let config = Config::new(PathBuf::from("example/Cargo.toml"), vec![])
+        let config = Config::new(true, PathBuf::from("example/Cargo.toml"), vec![])
             .unwrap_or_else(|err| {
                 panic!("Couldn't create the config: {}", err);
             });
