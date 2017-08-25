@@ -21,23 +21,27 @@ pub mod cargo;
 pub mod error;
 pub mod json;
 
+mod ui;
+
 pub use json::create_json;
 
 use std::fs::{self, File};
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 
-use indicatif::{ProgressBar, ProgressStyle};
-
 use assets::Asset;
 use cargo::Target;
 use error::*;
+use ui::Ui;
 
 pub use error::{Error, ErrorKind};
 
 /// A structure that contains various fields that hold data in order to generate doc output.
 #[derive(Debug)]
 pub struct Config {
+    /// Interactions with the user interface.
+    ui: Ui,
+
     /// Path to the `Cargo.toml` file for the crate being analyzed
     manifest_path: PathBuf,
 
@@ -64,6 +68,7 @@ impl Config {
         }
 
         Ok(Config {
+            ui: Ui,
             manifest_path,
             host,
             assets,
@@ -97,30 +102,27 @@ impl Config {
 /// - `artifacts`: A slice containing what assets should be output at the end
 pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
     let metadata = cargo::retrieve_metadata(&config.manifest_path)?;
-    let target = cargo::target_from_metadata(&metadata)?;
+    let target = cargo::target_from_metadata(&config.ui, &metadata)?;
     generate_and_load_analysis(config, &target)?;
 
     let output_path = config.output_path();
     fs::create_dir_all(&output_path)?;
 
     if artifacts.contains(&"json") {
-        let spinner = create_spinner();
-        spinner.set_prefix("Generating JSON");
-        spinner.set_message("In Progress");
+        let task = config.ui.start_task("Generating JSON");
+        task.report("In Progress");
 
         let json = create_json(&config.host, &target.crate_name())?;
 
         let json_path = output_path.join("data.json");
         let mut file = File::create(json_path)?;
         file.write_all(json.as_bytes())?;
-        spinner.finish_with_message("Done");
     }
 
     // now that we've written out the data, we can write out the rest of it
     if artifacts.contains(&"assets") {
-        let spinner = create_spinner();
-        spinner.set_prefix("Copying Assets");
-        spinner.set_message("In Progress");
+        let task = config.ui.start_task("Copying Assets");
+        task.report("In Progress");
 
         let assets_path = output_path.join("assets");
         fs::create_dir_all(&assets_path)?;
@@ -128,21 +130,9 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
         for asset in &config.assets {
             assets::create_asset_file(asset.name, &output_path, asset.contents)?;
         }
-
-        spinner.finish_with_message("Done");
     }
 
     Ok(())
-}
-
-/// Create a new spinner to display progress to the user.
-fn create_spinner() -> ProgressBar {
-    let spinner = ProgressBar::new_spinner();
-    spinner.enable_steady_tick(50);
-    spinner.set_style(ProgressStyle::default_spinner().template(
-        "{spinner} {prefix}: {wide_msg}",
-    ));
-    spinner
 }
 
 /// Generate save analysis data of a crate to be used later by the RLS library later and load it
@@ -156,23 +146,26 @@ fn create_spinner() -> ProgressBar {
 fn generate_and_load_analysis(config: &Config, target: &Target) -> Result<()> {
     let manifest_path = &config.manifest_path;
 
-    let spinner = create_spinner();
-    spinner.set_prefix("Generating save analysis data");
-    spinner.set_message("In Progress");
+    let task = config.ui.start_task("Generating save analysis data");
+    task.report("In progress");
 
-    if let Err(e) = cargo::generate_analysis(manifest_path, target, &spinner) {
-        spinner.finish_with_message("Error");
-        return Err(e);
+    let analysis_result =
+        cargo::generate_analysis(manifest_path, target, |progress| { task.report(progress); });
+
+    if analysis_result.is_err() {
+        task.error();
+        return analysis_result;
     }
 
-    spinner.finish_with_message("Done");
+    drop(task);
 
-    let spinner = create_spinner();
-    spinner.set_prefix("Loading save analysis data");
-    spinner.set_message("In Progress");
+    let task = config.ui.start_task("Loading save analysis data");
+    task.report("In Progress");
+
     let root_path = config.root_path();
     config.host.reload(root_path, root_path)?;
-    spinner.finish_with_message("Done");
+
+    drop(task);
 
     Ok(())
 }
