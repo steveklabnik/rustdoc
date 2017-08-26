@@ -202,19 +202,25 @@ pub fn target_from_metadata(ui: &Ui, metadata: &serde_json::Value) -> Result<Tar
                 TargetKind::Binary => false,
             });
 
-        if !libs.is_empty() {
-            ui.warn(
-                "Found more than one target to document. Documenting the library.",
-            );
-            Ok(libs.remove(0))
+        // Default to documenting the library if it exists.
+        let target = if !libs.is_empty() {
+            libs.remove(0)
         } else {
-            let target = bins.remove(0);
-            ui.warn(&format!(
-                "Found more than one target to document. Documenting the first binary: {}",
-                target.name
-            ));
-            Ok(target)
-        }
+            bins.remove(0)
+        };
+
+        let kind = match target.kind {
+            TargetKind::Library => "library",
+            TargetKind::Binary => "first binary",
+        };
+
+        ui.warn(&format!(
+            "Found more than one target to document. Documenting the {}: {}",
+            kind,
+            target.name
+        ));
+
+        Ok(target)
     }
 }
 
