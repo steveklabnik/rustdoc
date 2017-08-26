@@ -35,6 +35,7 @@ use error::*;
 use ui::Ui;
 
 pub use error::{Error, ErrorKind};
+pub use ui::Verbosity;
 
 /// A structure that contains various fields that hold data in order to generate doc output.
 #[derive(Debug)]
@@ -60,7 +61,7 @@ impl Config {
     /// ## Arguments
     ///
     /// - `manifest_path`: The path to the `Cargo.toml` of the crate being documented
-    pub fn new(quiet: bool, manifest_path: PathBuf, assets: Vec<Asset>) -> Result<Config> {
+    pub fn new(verbosity: Verbosity, manifest_path: PathBuf, assets: Vec<Asset>) -> Result<Config> {
         let host = analysis::AnalysisHost::new(analysis::Target::Debug);
 
         if !manifest_path.is_file() || !manifest_path.ends_with("Cargo.toml") {
@@ -68,7 +69,7 @@ impl Config {
         }
 
         Ok(Config {
-            ui: Ui::new(quiet),
+            ui: Ui::new(verbosity),
             manifest_path,
             host,
             assets,

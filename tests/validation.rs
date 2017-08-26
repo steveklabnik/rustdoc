@@ -6,14 +6,17 @@ mod validation_tests {
     use std::fs::File;
     use std::io::Read;
     use std::path::{Path, PathBuf};
-    use rustdoc::{build, Config};
+    use rustdoc::{build, Config, Verbosity};
 
     #[test]
     fn json_fmt_test() {
-        let config = Config::new(true, PathBuf::from("example/Cargo.toml"), vec![])
-            .unwrap_or_else(|err| {
-                panic!("Couldn't create the config: {}", err);
-            });
+        let config = Config::new(
+            Verbosity::Quiet,
+            PathBuf::from("example/Cargo.toml"),
+            vec![],
+        ).unwrap_or_else(|err| {
+            panic!("Couldn't create the config: {}", err);
+        });
 
         build(&config, &["json"]).unwrap_or_else(|err| {
             panic!("Error: {}", err);

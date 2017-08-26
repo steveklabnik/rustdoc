@@ -7,7 +7,7 @@ extern crate clap;
 
 use clap::{App, Arg, SubCommand};
 
-use rustdoc::{Config, build};
+use rustdoc::{build, Config, Verbosity};
 
 use std::io::{Write, stderr};
 use std::process;
@@ -57,7 +57,12 @@ fn run() -> rustdoc::error::Result<()> {
     // unwrap is okay because we take a default value
     let manifest_path = PathBuf::from(&matches.value_of("manifest-path").unwrap());
     let assets = include!(concat!(env!("OUT_DIR"), "/asset.in"));
-    let config = Config::new(matches.is_present("quiet"), manifest_path, assets)?;
+    let verbosity = if matches.is_present("quiet") {
+        Verbosity::Quiet
+    } else {
+        Verbosity::Normal
+    };
+    let config = Config::new(verbosity, manifest_path, assets)?;
 
     match matches.subcommand() {
         ("build", Some(matches)) => {

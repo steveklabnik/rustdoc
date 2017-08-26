@@ -1,23 +1,23 @@
 use std::cell::Cell;
+use std::cmp;
 use std::fmt::{self, Debug};
 
 use indicatif::{ProgressBar, ProgressStyle};
 
 #[derive(Debug, Default)]
 pub struct Ui {
-    quiet: bool,
+    verbosity: Verbosity,
 }
 
 impl Ui {
-    pub fn new(quiet: bool) -> Ui {
-        Ui { quiet }
+    pub fn new(verbosity: Verbosity) -> Ui {
+        Ui { verbosity }
     }
 
     pub fn start_task(&self, name: &str) -> Task {
-        let spinner = if self.quiet {
-            ProgressBar::hidden()
-        } else {
-            ProgressBar::new_spinner()
+        let spinner = match self.verbosity {
+            Verbosity::Normal => ProgressBar::new_spinner(),
+            Verbosity::Quiet => ProgressBar::hidden(),
         };
 
         spinner.enable_steady_tick(50);
@@ -35,9 +35,25 @@ impl Ui {
     }
 
     pub fn warn(&self, message: &str) {
-        if !self.quiet {
+        if self.verbosity > Verbosity::Quiet {
             eprintln!("warning: {}", message);
         }
+    }
+}
+
+/// The verbosity of the output displayed to the user.
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Verbosity {
+    /// No output.
+    Quiet,
+
+    /// Normal output, with spinners.
+    Normal,
+}
+
+impl Default for Verbosity {
+    fn default() -> Verbosity {
+        Verbosity::Normal
     }
 }
 
