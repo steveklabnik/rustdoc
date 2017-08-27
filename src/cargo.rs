@@ -5,10 +5,10 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-use indicatif::ProgressBar;
 use serde_json;
 
 use error::*;
+use ui::Ui;
 
 /// The kinds of targets that we can document.
 #[derive(Debug, PartialEq, Eq)]
@@ -77,11 +77,11 @@ pub fn retrieve_metadata(manifest_path: &Path) -> Result<serde_json::Value> {
 ///
 /// - `manifest_path`: The path to the crate's Cargo.toml
 /// - `target`: The target that we should generate the analysis data for
-pub fn generate_analysis(
-    manifest_path: &Path,
-    target: &Target,
-    progress: &ProgressBar,
-) -> Result<()> {
+/// - `report_progress`: A closure that should be called to report a progress message
+pub fn generate_analysis<F>(manifest_path: &Path, target: &Target, report_progress: F) -> Result<()>
+where
+    F: Fn(&str) -> (),
+{
     let mut command = Command::new("cargo");
 
     let target_dir = manifest_path
@@ -132,7 +132,7 @@ pub fn generate_analysis(
             if line.starts_with("Updating") || line.starts_with("Compiling") ||
                 line.starts_with("Finished")
             {
-                progress.set_message(line);
+                report_progress(line);
             }
         }
     }
@@ -151,7 +151,7 @@ pub fn generate_analysis(
 /// ## Arguments
 ///
 /// - metadata: The JSON metadata of the crate.
-pub fn target_from_metadata(metadata: &serde_json::Value) -> Result<Target> {
+pub fn target_from_metadata(ui: &Ui, metadata: &serde_json::Value) -> Result<Target> {
     // We can expect at least one package and target, otherwise the metadata generation would have
     // failed.
     let targets = metadata["packages"][0]["targets"].as_array().expect(
@@ -196,30 +196,43 @@ pub fn target_from_metadata(metadata: &serde_json::Value) -> Result<Target> {
         Ok(targets.remove(0))
     } else {
         // FIXME(#105): Handle more than one target.
-        print!("warning: Found more than one target to document. ");
         let (mut libs, mut bins): (Vec<_>, Vec<_>) =
             targets.into_iter().partition(|target| match target.kind {
                 TargetKind::Library => true,
                 TargetKind::Binary => false,
             });
 
-        if !libs.is_empty() {
-            println!("Documenting the library.");
-            Ok(libs.remove(0))
+        // Default to documenting the library if it exists.
+        let target = if !libs.is_empty() {
+            libs.remove(0)
         } else {
-            let target = bins.remove(0);
-            println!("Documenting the first binary: {}", target.name);
-            Ok(target)
-        }
+            bins.remove(0)
+        };
+
+        let kind = match target.kind {
+            TargetKind::Library => "library",
+            TargetKind::Binary => "first binary",
+        };
+
+        ui.warn(&format!(
+            "Found more than one target to document. Documenting the {}: {}",
+            kind,
+            target.name
+        ));
+
+        Ok(target)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use ui::Ui;
     use super::{Target, TargetKind};
 
     #[test]
     fn target_from_metadata() {
+        let ui = Ui::default();
+
         let metadata = json!({
             "packages": [
                 {
@@ -233,7 +246,7 @@ mod tests {
                 },
             ],
         });
-        let target = super::target_from_metadata(&metadata).unwrap();
+        let target = super::target_from_metadata(&ui, &metadata).unwrap();
         assert_eq!(target, Target { kind: TargetKind::Library, name: "underscored_name".into() });
         assert_eq!(&target.crate_name(), "underscored_name");
 
@@ -250,7 +263,7 @@ mod tests {
                 },
             ],
         });
-        let target = super::target_from_metadata(&metadata).unwrap();
+        let target = super::target_from_metadata(&ui, &metadata).unwrap();
         assert_eq!(target, Target { kind: TargetKind::Library, name: "dashed-name".into() });
         assert_eq!(&target.crate_name(), "dashed_name");
 
@@ -267,7 +280,7 @@ mod tests {
                 },
             ],
         });
-        let target = super::target_from_metadata(&metadata).unwrap();
+        let target = super::target_from_metadata(&ui, &metadata).unwrap();
         assert_eq!(target, Target { kind: TargetKind::Binary, name: "underscored_name".into() });
         assert_eq!(&target.crate_name(), "underscored_name");
 
@@ -284,7 +297,7 @@ mod tests {
                 },
             ],
         });
-        assert_eq!(super::target_from_metadata(&metadata).unwrap().kind, TargetKind::Library);
+        assert_eq!(super::target_from_metadata(&ui, &metadata).unwrap().kind, TargetKind::Library);
 
         let metadata = json!({
             "packages": [
@@ -299,7 +312,7 @@ mod tests {
                 },
             ],
         });
-        assert_eq!(super::target_from_metadata(&metadata).unwrap().kind, TargetKind::Binary);
+        assert_eq!(super::target_from_metadata(&ui, &metadata).unwrap().kind, TargetKind::Binary);
 
         let metadata = json!({
             "packages": [
@@ -318,6 +331,6 @@ mod tests {
                 },
             ],
         });
-        assert_eq!(super::target_from_metadata(&metadata).unwrap().kind, TargetKind::Library);
+        assert_eq!(super::target_from_metadata(&ui, &metadata).unwrap().kind, TargetKind::Library);
     }
 }
