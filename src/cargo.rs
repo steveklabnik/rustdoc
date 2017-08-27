@@ -7,6 +7,8 @@ use std::process::{Command, Stdio};
 
 use serde_json;
 
+use Config;
+use Verbosity;
 use error::*;
 use ui::Ui;
 
@@ -75,16 +77,17 @@ pub fn retrieve_metadata(manifest_path: &Path) -> Result<serde_json::Value> {
 ///
 /// ## Arguments
 ///
-/// - `manifest_path`: The path to the crate's Cargo.toml
+/// - `config`: Rustdoc configuration
 /// - `target`: The target that we should generate the analysis data for
 /// - `report_progress`: A closure that should be called to report a progress message
-pub fn generate_analysis<F>(manifest_path: &Path, target: &Target, report_progress: F) -> Result<()>
+pub fn generate_analysis<F>(config: &Config, target: &Target, report_progress: F) -> Result<()>
 where
     F: Fn(&str) -> (),
 {
     let mut command = Command::new("cargo");
 
-    let target_dir = manifest_path
+    let target_dir = config
+        .manifest_path
         .parent()
         .ok_or("Expected manifest_path to point to Cargo.toml")?
         .join("target/rls");
@@ -92,11 +95,15 @@ where
     command
         .arg("check")
         .arg("--manifest-path")
-        .arg(manifest_path)
+        .arg(&config.manifest_path)
         .env("RUSTFLAGS", "-Z save-analysis")
         .env("CARGO_TARGET_DIR", target_dir)
         .stderr(Stdio::piped())
         .stdout(Stdio::null());
+
+    if let Verbosity::Verbose = *config.ui.verbosity() {
+        command.arg("--verbose");
+    }
 
     match target.kind {
         TargetKind::Library => {
@@ -130,7 +137,8 @@ where
             // cargo messages. Alternatively, we could use the JSON message format to filter, but
             // that is probably overkill.
             if line.starts_with("Updating") || line.starts_with("Compiling") ||
-                line.starts_with("Finished")
+                line.starts_with("Finished") || line.starts_with("Running") ||
+                line.starts_with("Fresh") || line.starts_with("Downloading")
             {
                 report_progress(line);
             }

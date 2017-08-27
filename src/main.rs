@@ -31,7 +31,10 @@ fn run() -> rustdoc::error::Result<()> {
                 .help("The path to the Cargo manifest of the project you are documenting."),
         )
         .arg(Arg::with_name("quiet").short("q").long("quiet").help(
-            "No output printed to stdout.",
+            "No output printed to stdout",
+        ))
+        .arg(Arg::with_name("verbose").short("v").long("verbose").help(
+            "Use verbose output",
         ))
         .subcommand(
             SubCommand::with_name("build")
@@ -59,6 +62,8 @@ fn run() -> rustdoc::error::Result<()> {
     let assets = include!(concat!(env!("OUT_DIR"), "/asset.in"));
     let verbosity = if matches.is_present("quiet") {
         Verbosity::Quiet
+    } else if matches.is_present("verbose") {
+        Verbosity::Verbose
     } else {
         Verbosity::Normal
     };

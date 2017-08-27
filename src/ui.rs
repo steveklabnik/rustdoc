@@ -1,5 +1,4 @@
 use std::cell::Cell;
-use std::cmp;
 use std::fmt::{self, Debug};
 
 use indicatif::{ProgressBar, ProgressStyle};
@@ -16,19 +15,23 @@ impl Ui {
 
     pub fn start_task(&self, name: &str) -> Task {
         let spinner = match self.verbosity {
-            Verbosity::Normal => ProgressBar::new_spinner(),
-            Verbosity::Quiet => ProgressBar::hidden(),
+            Verbosity::Normal => Some(ProgressBar::new_spinner()),
+            Verbosity::Quiet => Some(ProgressBar::hidden()),
+            Verbosity::Verbose => None,
         };
 
-        spinner.enable_steady_tick(50);
-        spinner.set_style(ProgressStyle::default_spinner().template(
-            "{spinner} {prefix}: {wide_msg}",
-        ));
+        if let Some(ref spinner) = spinner {
+            spinner.enable_steady_tick(50);
+            spinner.set_style(ProgressStyle::default_spinner().template(
+                "{spinner} {prefix}: {wide_msg}",
+            ));
 
-        spinner.set_prefix(name);
+            spinner.set_prefix(name);
+        }
 
         Task {
             ui: self,
+            name: name.to_owned(),
             spinner,
             is_error: Cell::new(false),
         }
@@ -38,6 +41,10 @@ impl Ui {
         if self.verbosity > Verbosity::Quiet {
             eprintln!("warning: {}", message);
         }
+    }
+
+    pub fn verbosity(&self) -> &Verbosity {
+        &self.verbosity
     }
 }
 
@@ -49,6 +56,9 @@ pub enum Verbosity {
 
     /// Normal output, with spinners.
     Normal,
+
+    /// Verbose output. No spinners are displayed, and all intermediate output is printed.
+    Verbose,
 }
 
 impl Default for Verbosity {
@@ -59,7 +69,8 @@ impl Default for Verbosity {
 
 pub struct Task<'a> {
     ui: &'a Ui,
-    spinner: ProgressBar,
+    name: String,
+    spinner: Option<ProgressBar>,
     is_error: Cell<bool>,
 }
 
@@ -75,7 +86,17 @@ impl<'a> Debug for Task<'a> {
 
 impl<'a> Task<'a> {
     pub fn report(&self, message: &str) {
-        self.spinner.set_message(message);
+        if let Some(ref spinner) = self.spinner {
+            spinner.set_message(message);
+        } else {
+            println!("{}: {}", self.name, message);
+        }
+    }
+
+    pub fn report_verbose(&self, message: &str) {
+        if self.ui.verbosity > Verbosity::Normal {
+            println!("{}: {}", self.name, message);
+        }
     }
 
     pub fn error(&self) {
@@ -91,6 +112,10 @@ impl<'a> Drop for Task<'a> {
             "Done"
         };
 
-        self.spinner.finish_with_message(message);
+        if let Some(ref spinner) = self.spinner {
+            spinner.finish_with_message(message);
+        } else {
+            println!("{}: {}", self.name, message);
+        }
     }
 }
