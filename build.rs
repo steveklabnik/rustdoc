@@ -174,7 +174,7 @@ fn generate_source_tests() -> Result<()> {
                         println!("backtrace: {:?}", backtrace);
                     }
 
-                    panic!();
+                    panic!("failed test");
                 }
             }
         };
