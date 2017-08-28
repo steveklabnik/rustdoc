@@ -145,13 +145,11 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
 ///             `Cargo.toml` file
 /// - `target`: The target to document
 fn generate_and_load_analysis(config: &Config, target: &Target) -> Result<()> {
-    let manifest_path = &config.manifest_path;
-
     let task = config.ui.start_task("Generating save analysis data");
     task.report("In progress");
 
     let analysis_result =
-        cargo::generate_analysis(manifest_path, target, |progress| { task.report(progress); });
+        cargo::generate_analysis(config, target, |progress| { task.report(progress); });
 
     if analysis_result.is_err() {
         task.error();
