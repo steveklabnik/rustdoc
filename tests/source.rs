@@ -29,7 +29,6 @@ extern crate regex;
 extern crate rls_analysis as analysis;
 extern crate shlex;
 extern crate tempdir;
-extern crate jsonapi;
 
 use std::fs::{self, File};
 use std::io::prelude::*;

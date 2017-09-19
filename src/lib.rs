@@ -12,9 +12,7 @@ extern crate serde_json;
 
 extern crate indicatif;
 extern crate open;
-extern crate rayon;
 extern crate rls_analysis as analysis;
-extern crate serde;
 
 pub mod assets;
 pub mod cargo;
