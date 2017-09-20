@@ -13,6 +13,10 @@ Specifically, you can run `rustdoc` inside the root of a crate, and it will
 produce HTML, CSS, and Javascript into the `target\doc` directory. Open
 `target\doc\index.html` to check it out.
 
+## Purpose
+The current rust-doc tool is a wonderful tool for Rust developers, giving us the ability to write great docs for our code. But it has one big downside that it uses the compiler's internals to generate the docs and this inturn makes it difficult to contribute to the docs. Essentially, one has to setup the entire compiler toolchain in order to modify/add new features to the tool. While we recognize that there are lots of improvements we can do to the rust-doc tool, we first need to make move it to a separate repository and have it achieve feature parity with the current docs. Having said that this is not the only purpose of this project and we plan to add more features once the feature parity is achieved. Take a look at [The Rustdoc Redux](https://internals.rust-lang.org/t/the-rustdoc-redux/5542) for more about the purpose of this project.
+
+
 ## Project structure
 
 There are three top-level directories that are important: `src` contains the main source
