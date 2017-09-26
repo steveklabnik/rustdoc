@@ -4,16 +4,23 @@ mod api;
 
 pub use self::api::*;
 
-use std::collections::HashMap;
-
-use analysis::{self, AnalysisHost, DefKind};
-use rayon::prelude::*;
+use analysis::{AnalysisHost, DefKind};
 use serde_json;
 
 use error::*;
 
+use std::collections::VecDeque;
+
 /// This creates the JSON documentation from the given `AnalysisHost`.
 pub fn create_json(host: &AnalysisHost, crate_name: &str) -> Result<String> {
+    // This function does a lot, so here's the plan:
+    //
+    // First, we need to process the root def and get its list of children.
+    // Then, we process all of the children. Children may produce more children
+    // to be processed too. Once we've processed them all, we're done.
+
+    // Step one: we need to get all of the "def roots", and then find the
+    // one that's our crate.
     let roots = host.def_roots()?;
 
     let id = roots.iter().find(|&&(_, ref name)| name == crate_name);
@@ -24,63 +31,84 @@ pub fn create_json(host: &AnalysisHost, crate_name: &str) -> Result<String> {
 
     let root_def = host.get_def(root_id)?;
 
-    fn recur(id: &analysis::Id, host: &AnalysisHost) -> Vec<analysis::Def> {
-        let mut ids = Vec::new();
-        let mut defs = host.for_each_child_def(*id, |id, def| {
-            ids.push(id);
-            def.clone()
-        }).unwrap();
+    // Create the main `Document`.
+    let mut document = Document::new()
+        .ty(String::from("crate"))
+        .id(crate_name.to_string())
+        .attributes(String::from("docs"), root_def.docs);
 
-        let child_defs: Vec<analysis::Def> = ids.into_par_iter()
-            .map(|id: analysis::Id| recur(&id, host))
-            .reduce(Vec::default, |mut a: Vec<analysis::Def>,
-             b: Vec<analysis::Def>| {
-                a.extend(b);
-                a
-            });
-        defs.extend(child_defs);
-        defs
-    }
+    // Now that we have that, it's time to get the children; these are
+    // the top-level items for the crate.
+    let ids = host.for_each_child_def(root_id, |id, _def| id).unwrap();
 
-    let mut included: Vec<Document> = Vec::new();
-    let mut relationships: HashMap<String, Vec<Data>> = HashMap::with_capacity(METADATA_SIZE);
 
-    for def in recur(&root_id, host) {
-        let (ty, relations_key) = match def.kind {
+    // Now, we push all of those children onto a channel. The channel functions
+    // as a work queue; we take an item off, process it, and then if it has
+    // children, push them onto the queue. When the queue is empty, we've processed
+    // everything.
+    //
+    // Additionally, we generate relationships between the crate itself and
+    // these ids, as they're at the top level and hence linked with the crate.
+
+    let mut queue = VecDeque::new();
+
+    for id in ids {
+        queue.push_back(id);
+
+        let def = host.get_def(id).unwrap();
+
+        let (ty, child_ty) = match def.kind {
             DefKind::Mod => (String::from("module"), String::from("modules")),
             DefKind::Struct => (String::from("struct"), String::from("structs")),
             _ => continue,
         };
 
-        // Using the item's metadata we create a new `Document` type to be put in the eventual
-        // serialized JSON.
-        included.push(
-            Document::new()
-                .ty(ty.clone())
-                .id(def.qualname.clone())
-                .attributes(String::from("name"), def.name)
-                .attributes(String::from("docs"), def.docs),
-        );
+        let data = Data::new().ty(ty.clone()).id(def.qualname.clone());
 
-        let item_relationships = relationships.entry(relations_key).or_insert_with(
-            Default::default,
-        );
-        item_relationships.push(Data::new().ty(ty).id(def.qualname));
+        document.add_relationship(child_ty, data);
     }
 
-    let mut data_document = Document::new()
-        .ty(String::from("crate"))
-        .id(crate_name.to_string())
-        .attributes(String::from("docs"), root_def.docs);
+    // The loop below is basically creating this vector.
+    let mut included: Vec<Document> = Vec::new();
 
-    // Insert all of the different types of relationships into this `Document` type only
-    for (ty, data) in relationships {
-        data_document.relationships(ty, data);
+    while let Some(id) = queue.pop_front() {
+        // push each child to be processed itself, and also record
+        // their ids so we can create the relationships for later
+        let child_ids = host.for_each_child_def(id, |id, _def| {
+            queue.push_back(id);
+            id
+        })?;
+
+        // Question: we could do this by cloning it in the call to for_each_child_def
+        // above/below; is that cheaper, or is this cheaper?
+        let def = host.get_def(id).unwrap();
+
+        // Using the item's metadata we create a new `Document` type to be put in the eventual
+        // serialized JSON.
+        let (ty, child_ty) = match def.kind {
+            DefKind::Mod => (String::from("module"), String::from("child_modules")),
+            DefKind::Struct => (String::from("struct"), String::from("child_structs")),
+            _ => continue,
+        };
+
+        let mut document = Document::new()
+            .ty(ty.clone())
+            .id(def.qualname.clone())
+            .attributes(String::from("name"), def.name)
+            .attributes(String::from("docs"), def.docs);
+
+        for id in child_ids {
+            let def = host.get_def(id).unwrap();
+
+            let data = Data::new().ty(ty.clone()).id(def.qualname.clone());
+
+            document.add_relationship(child_ty.clone(), data);
+        }
+
+        included.push(document);
     }
 
     Ok(serde_json::to_string(
-        &Documentation::new().data(data_document).included(
-            included,
-        ),
+        &Documentation::new().data(document).included(included),
     )?)
 }

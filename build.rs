@@ -4,7 +4,6 @@
 extern crate error_chain;
 #[macro_use]
 extern crate quote;
-extern crate syn;
 extern crate glob;
 
 use std::env;

@@ -194,6 +194,32 @@ impl Document {
             }
         }
     }
+
+    /// Like relationships, but if the key already exists, appends data rather than
+    /// overwriting.
+    pub fn add_relationship(&mut self, ty: String, data: Data) {
+        match self.relationships {
+            None => {
+                let mut data_map = HashMap::with_capacity(DATA_SIZE);
+                data_map.insert(String::from("data"), vec![data]);
+
+                let mut relationships = HashMap::with_capacity(METADATA_SIZE);
+                relationships.insert(ty, data_map);
+                self.relationships = Some(relationships);
+            }
+            Some(ref mut relationships) => {
+                let entry = relationships.entry(ty).or_insert_with(|| {
+                    let mut map = HashMap::with_capacity(DATA_SIZE);
+                    map.insert(String::from("data"), Vec::new());
+                    map
+                });
+
+                // We know that we have a "data" entry because we created it above
+                let data_vec = entry.get_mut("data").unwrap();
+                data_vec.push(data);
+            }
+        }
+    }
 }
 
 impl Data {
