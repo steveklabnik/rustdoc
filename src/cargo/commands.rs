@@ -18,19 +18,22 @@ pub fn retrieve_metadata(manifest_path: &Path) -> CommandBridge {
 
 pub fn generate_analysis(manifest_path: &PathBuf, is_verbose: bool) -> Result<CommandBridge> {
 
-    let mut command = CommandBridge::new("cargo");
+    check_manifest_path_points_to_cargo_toml(manifest_path)?;
 
-    //let target_dir = manifest_path
-    //    .parent()
-    //    .ok_or("Expected manifest_path to point to Cargo.toml")?
-    //    .join("target/rls");
+    const RLS_TARGET : &str = "target/rls";
+    let target_dir = manifest_path
+        .parent()
+        .expect("Unreachable. If not, fill a bug about `check_manifest_path_points_to_cargo_toml`")
+        .join(RLS_TARGET);
+
+    let mut command = CommandBridge::new("cargo");
 
     command
         .arg("check")
         .arg("--manifest-path")
         .arg(&manifest_path)
+        //.env("CARGO_TARGET_DIR", target_dir) // FIXME compiles
         .env("RUSTFLAGS", "-Z save-analysis")
-        //.env("CARGO_TARGET_DIR", target_dir)
         .stderr(Stdio::piped())
         .stdout(Stdio::null());
 
@@ -49,6 +52,23 @@ pub fn generate_analysis(manifest_path: &PathBuf, is_verbose: bool) -> Result<Co
     //}
 
     Ok(command)
+}
+
+fn check_manifest_path_points_to_cargo_toml(manifest_path: &PathBuf) -> Result<()> {
+
+    const ERR_MSG : &str = "Expected manifest_path to point to Cargo.toml";
+
+    if let Some(file_name) = manifest_path.file_name() {
+
+        if file_name != "Cargo.toml" {
+            bail!(ERR_MSG);
+        }
+
+    } else {
+        bail!(ERR_MSG);
+    }
+
+    Ok(())
 }
 
 
@@ -87,7 +107,7 @@ mod tests {
         fn it_exists() {
             // arrange
             // act
-            let res = generate_analysis(&PathBuf::new(),false);
+            let res = generate_analysis(&PathBuf::from("Cargo.toml"),false);
             // assert
             assert!(res.is_ok())
         }
@@ -96,9 +116,53 @@ mod tests {
         fn it_should_add_verbose_flag_when_verbosity_is_enabled() {
             // arrange
             // act
-            let res = generate_analysis(&PathBuf::new(), true).unwrap();
+            let res = generate_analysis(&PathBuf::from("Cargo.toml"), true).unwrap();
             // assert
             assert!(res.args.contains(&OsString::from("--verbose")))
+        }
+
+        #[test]
+        fn it_should_err_if_manifest_path_doesnt_point_to_cargo_toml() {
+            // arrange
+            let manifest_path = PathBuf::from("Hello.txt");
+            // act
+            let res = generate_analysis(&manifest_path, false);
+            // assert
+            assert!(res.is_err())
+        }
+    }
+
+    mod check_manifest_path_points_to_cargo_toml {
+        use super::*;
+
+        #[test]
+        fn it_exists() {
+            // arrange
+            let path = PathBuf::from("Cargo.toml");
+            // act
+            let res = check_manifest_path_points_to_cargo_toml(&path);
+            // assert
+            assert!(res.is_ok())
+        }
+
+        #[test]
+        fn it_err_on_directories() {
+            // arrange
+            let path = PathBuf::from("/users/rusty/");
+            // act
+            let res = check_manifest_path_points_to_cargo_toml(&path);
+            // assert
+            assert!(res.is_err())
+        }
+
+        #[test]
+        fn it_returns_err_if_filename_is_not_cargo_toml() {
+            // arrange
+            let path = PathBuf::from("/users/rusty/Rusty.toml");
+            // act
+            let res = check_manifest_path_points_to_cargo_toml(&path);
+            // assert
+            assert!(res.is_err())
         }
     }
 }

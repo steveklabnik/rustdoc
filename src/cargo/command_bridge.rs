@@ -36,8 +36,8 @@ impl CommandBridge {
         let mut key_str = OsString::new();
         let mut value_str = OsString::new();
 
-        key_str.push(key);
-        value_str.push(value);
+        key_str.push(key.as_ref());
+        value_str.push(value.as_ref());
 
         self.env.insert(key_str, value_str);
         

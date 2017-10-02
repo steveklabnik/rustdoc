@@ -45,7 +45,7 @@ pub fn retrieve_metadata(manifest_path: &Path) -> Result<serde_json::Value> {
 /// - `config`: Rustdoc configuration
 /// - `target`: The target that we should generate the analysis data for
 /// - `report_progress`: A closure that should be called to report a progress message
-pub fn generate_analysis<F>(config: &Config, target: &Target, report_progress: F) -> Result<()>
+pub fn generate_analysis<F>(config: &Config, _target: &Target, report_progress: F) -> Result<()>
 where
     F: Fn(&str) -> (),
 {
