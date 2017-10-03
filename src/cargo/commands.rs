@@ -6,14 +6,13 @@ use std::process::Stdio;
 use error::*;
 
 pub fn retrieve_metadata(manifest_path: &Path) -> CommandBridge {
-    let mut command = CommandBridge::new("cargo");
-    command.arg("metadata")
+    CommandBridge::new("cargo")
+        .arg("metadata")
         .arg("--manifest-path")
         .arg(manifest_path)
         .arg("--no-deps")
         .arg("--format-version")
-        .arg("1");
-    command
+        .arg("1")
 }
 
 pub fn generate_analysis(manifest_path: &PathBuf, is_verbose: bool) -> Result<CommandBridge> {
@@ -21,14 +20,12 @@ pub fn generate_analysis(manifest_path: &PathBuf, is_verbose: bool) -> Result<Co
     check_manifest_path_points_to_cargo_toml(manifest_path)?;
 
     const RLS_TARGET : &str = "target/rls";
-    let target_dir = manifest_path
+    let _target_dir = manifest_path
         .parent()
         .expect("Unreachable. If not, fill a bug about `check_manifest_path_points_to_cargo_toml`")
         .join(RLS_TARGET);
 
-    let mut command = CommandBridge::new("cargo");
-
-    command
+    let command = CommandBridge::new("cargo")
         .arg("check")
         .arg("--manifest-path")
         .arg(&manifest_path)
@@ -37,9 +34,11 @@ pub fn generate_analysis(manifest_path: &PathBuf, is_verbose: bool) -> Result<Co
         .stderr(Stdio::piped())
         .stdout(Stdio::null());
 
-    if is_verbose {
-        command.arg("--verbose");
-    }
+    let command = if is_verbose {
+        command.arg("--verbose")
+    } else {
+        command
+    };
 
     //match target.kind {
     //    TargetKind::Library => {
