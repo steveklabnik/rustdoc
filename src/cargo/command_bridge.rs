@@ -21,7 +21,7 @@ impl CommandBridge {
     pub fn new(command_name: &str) -> Self {
         CommandBridge {
             command_name: String::from(command_name),
-            .. Default::default()
+            ..Default::default()
         }
     }
 
@@ -40,7 +40,7 @@ impl CommandBridge {
         value_str.push(value.as_ref());
 
         self.env.insert(key_str, value_str);
-        
+
         self
     }
 
@@ -83,8 +83,7 @@ mod tests {
             // arrange
             let arg = OsString::from("some arg");
             // act
-            let cmd = CommandBridge::new("some cmd")
-                .arg(&arg);
+            let cmd = CommandBridge::new("some cmd").arg(&arg);
             // assert
             assert!(cmd.args.contains(&arg))
         }
@@ -99,8 +98,7 @@ mod tests {
             let key = OsString::from("hello");
             let value = OsString::from("world");
             // act
-            let cmd = CommandBridge::new("plop")
-                .env(&key, &value);
+            let cmd = CommandBridge::new("plop").env(&key, &value);
             // assert
             assert_eq!(&value, cmd.env.get(&key).unwrap())
         }
@@ -114,8 +112,7 @@ mod tests {
             // arrange
             let stdout = Stdio::null();
             // act
-            let _cmd = CommandBridge::new("plop")
-                .stdout(stdout);
+            let _cmd = CommandBridge::new("plop").stdout(stdout);
             // assert
             // FIXME: is there is really no way to compare an Stdio instance ??
             //assert_eq!(stdout as *const (), cmd.stdout.unwrap() as *const ())
@@ -130,12 +127,10 @@ mod tests {
             // arrange
             let stderr = Stdio::null();
             // act
-            let _cmd = CommandBridge::new("plop")
-                .stderr(stderr);
+            let _cmd = CommandBridge::new("plop").stderr(stderr);
             // assert
             // FIXME: is there is really no way to compare an Stdio instance ??
             //assert_eq!(stderr as *const (), cmd.stderr.unwrap() as *const ())
         }
     }
 }
-

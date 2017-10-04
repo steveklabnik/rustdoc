@@ -19,10 +19,12 @@ pub fn generate_analysis(manifest_path: &PathBuf, is_verbose: bool) -> Result<Co
 
     check_manifest_path_points_to_cargo_toml(manifest_path)?;
 
-    const RLS_TARGET : &str = "target/rls";
+    const RLS_TARGET: &str = "target/rls";
     let _target_dir = manifest_path
         .parent()
-        .expect("Unreachable. If not, fill a bug about `check_manifest_path_points_to_cargo_toml`")
+        .expect(
+            "Unreachable. If not, fill a bug about `check_manifest_path_points_to_cargo_toml`",
+        )
         .join(RLS_TARGET);
 
     let command = CommandBridge::new("cargo")
@@ -55,7 +57,7 @@ pub fn generate_analysis(manifest_path: &PathBuf, is_verbose: bool) -> Result<Co
 
 fn check_manifest_path_points_to_cargo_toml(manifest_path: &PathBuf) -> Result<()> {
 
-    const ERR_MSG : &str = "Expected manifest_path to point to Cargo.toml";
+    const ERR_MSG: &str = "Expected manifest_path to point to Cargo.toml";
 
     if let Some(file_name) = manifest_path.file_name() {
 
@@ -106,7 +108,7 @@ mod tests {
         fn it_exists() {
             // arrange
             // act
-            let res = generate_analysis(&PathBuf::from("Cargo.toml"),false);
+            let res = generate_analysis(&PathBuf::from("Cargo.toml"), false);
             // assert
             assert!(res.is_ok())
         }
