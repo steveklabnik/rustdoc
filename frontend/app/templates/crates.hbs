@@ -1,15 +1,17 @@
 <h1>Crate {{ model.id }}</h1>
 {{markdown-render model.docs }}
 
-<h2>Modules</h2>
-<ul>
-{{#each model.modules as |mod|}}
-  <li>
-    {{#link-to 'modules' mod }}
-      {{ mod.name }}
-    {{/link-to}}
-  </li>
-{{/each}}
-</ul>
+{{#if model.modules}}
+  <h2>Modules</h2>
+  <ul>
+  {{#each model.modules as |mod|}}
+    <li>
+      {{#link-to 'modules' mod }}
+        {{ mod.name }}
+      {{/link-to}}
+    </li>
+  {{/each}}
+  </ul>
+{{/if}}
 
 {{outlet}}
