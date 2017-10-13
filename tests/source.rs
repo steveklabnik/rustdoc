@@ -244,7 +244,8 @@ fn parse_directive(directive: &str, args: &str, negated: bool) -> Result<TestCas
 fn run_test(json: &serde_json::Value, case: TestCase) -> Result<()> {
     let value = match json.pointer(&case.pointer) {
         Some(value) => value,
-        None => return Err(ErrorKind::JsonPointer(case.pointer).into()),
+        None if !case.negated => return Err(ErrorKind::JsonPointer(case.pointer).into()),
+        None => return Ok(()),
     };
 
     let value = value.as_str().ok_or(
@@ -308,6 +309,13 @@ mod source_tests {
         assert_eq!(test.regex.as_str(), "special characters");
         assert!(!test.negated);
 
+        let test = super::parse_test("// @!has /some 'value'")
+            .unwrap()
+            .unwrap();
+        assert_eq!(test.pointer, "/some");
+        assert_eq!(test.regex.as_str(), "value");
+        assert!(test.negated);
+
         assert!(super::parse_test(r#"fn main() { println!("no test case"); }"#).is_none());
 
         let err = super::parse_test("// @has /test '['").unwrap().unwrap_err();
@@ -344,6 +352,15 @@ mod source_tests {
             TestCase {
                 pointer: "/test".into(),
                 regex: Regex::new("nonexistent").unwrap(),
+                negated: true,
+            },
+        ).unwrap();
+
+        super::run_test(
+            &json,
+            TestCase {
+                pointer: "/nonexistent".into(),
+                regex: Regex::new("value").unwrap(),
                 negated: true,
             },
         ).unwrap();
