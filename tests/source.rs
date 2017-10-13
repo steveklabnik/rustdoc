@@ -27,6 +27,7 @@ extern crate serde_json;
 
 extern crate regex;
 extern crate rls_analysis as analysis;
+extern crate rls_data as analysis_data;
 extern crate shlex;
 extern crate tempdir;
 
@@ -37,6 +38,7 @@ use std::path::Path;
 use std::process::Command;
 
 use analysis::{AnalysisHost, Target};
+use analysis_data::config::Config as AnalysisConfig;
 use regex::Regex;
 use serde_json::Value;
 
@@ -74,6 +76,11 @@ error_chain! {
             description("The JSON pointer did not point at a string")
             display("The JSON pointer did not point at a string: {:?}", value)
         }
+        UnexpectedPass(value: String, re: String) {
+            description("The value matched the regular expression, but it shouldn't")
+            display("The value '{}' matched the regular expression '{}' but it shouldn't",
+                    value, re)
+        }
     }
 }
 
@@ -91,7 +98,18 @@ fn generate_analysis(source_file: &Path, tempdir: &Path) -> Result<AnalysisHost>
         || "Source filename contained invalid UTF-8",
     )?;
 
+    let analysis_config = AnalysisConfig {
+        full_docs: true,
+        pub_only: true,
+        ..Default::default()
+    };
+
+    // FIXME: Use the rustdoc command once #155 is resolved.
     let rustc_status = Command::new("rustc")
+        .env(
+            "RUST_SAVE_ANALYSIS_CONFIG",
+            serde_json::to_string(&analysis_config)?,
+        )
         .args(&["-Z", "save-analysis"])
         .arg(source_filename)
         .current_dir(tempdir.to_str().expect(
@@ -231,20 +249,26 @@ fn parse_directive(directive: &str, args: &str, negated: bool) -> Result<TestCas
 fn run_test(json: &serde_json::Value, case: TestCase) -> Result<()> {
     let value = match json.pointer(&case.pointer) {
         Some(value) => value,
-        None => return Err(ErrorKind::JsonPointer(case.pointer).into()),
+        None if !case.negated => return Err(ErrorKind::JsonPointer(case.pointer).into()),
+        None => return Ok(()),
     };
 
     let value = value.as_str().ok_or(
         "The JSON pointer pointed at a type other than string",
     )?;
 
-    if case.regex.is_match(value) == !case.negated {
-        Ok(())
-    } else {
+    if case.regex.is_match(&value) && case.negated {
+        bail!(ErrorKind::UnexpectedPass(
+            value.to_owned(),
+            case.regex.as_str().to_owned(),
+        ));
+    } else if !case.regex.is_match(&value) && !case.negated {
         bail!(ErrorKind::ValueMismatch(
             value.to_owned(),
             case.regex.as_str().to_owned(),
         ));
+    } else {
+        Ok(())
     }
 }
 
@@ -295,6 +319,13 @@ mod source_tests {
         assert_eq!(test.regex.as_str(), "special characters");
         assert!(!test.negated);
 
+        let test = super::parse_test("// @!has /some 'value'")
+            .unwrap()
+            .unwrap();
+        assert_eq!(test.pointer, "/some");
+        assert_eq!(test.regex.as_str(), "value");
+        assert!(test.negated);
+
         assert!(super::parse_test(r#"fn main() { println!("no test case"); }"#).is_none());
 
         let err = super::parse_test("// @has /test '['").unwrap().unwrap_err();
@@ -334,6 +365,25 @@ mod source_tests {
                 negated: true,
             },
         ).unwrap();
+
+        super::run_test(
+            &json,
+            TestCase {
+                pointer: "/nonexistent".into(),
+                regex: Regex::new("value").unwrap(),
+                negated: true,
+            },
+        ).unwrap();
+
+        let err = super::run_test(
+            &json,
+            TestCase {
+                pointer: "/test".into(),
+                regex: Regex::new("value").unwrap(),
+                negated: true,
+            },
+        ).unwrap_err();
+        assert_err!(err, ErrorKind::UnexpectedPass);
 
         let err = super::run_test(
             &json,
