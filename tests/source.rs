@@ -27,6 +27,7 @@ extern crate serde_json;
 
 extern crate regex;
 extern crate rls_analysis as analysis;
+extern crate rls_data as analysis_data;
 extern crate shlex;
 extern crate tempdir;
 
@@ -37,6 +38,7 @@ use std::path::Path;
 use std::process::Command;
 
 use analysis::{AnalysisHost, Target};
+use analysis_data::config::Config as AnalysisConfig;
 use regex::Regex;
 use serde_json::Value;
 
@@ -91,7 +93,18 @@ fn generate_analysis(source_file: &Path, tempdir: &Path) -> Result<AnalysisHost>
         || "Source filename contained invalid UTF-8",
     )?;
 
+    let analysis_config = AnalysisConfig {
+        full_docs: true,
+        pub_only: true,
+        ..Default::default()
+    };
+
+    // FIXME: Use the rustdoc command once #155 is resolved.
     let rustc_status = Command::new("rustc")
+        .env(
+            "RUST_SAVE_ANALYSIS_CONFIG",
+            serde_json::to_string(&analysis_config)?,
+        )
         .args(&["-Z", "save-analysis"])
         .arg(source_filename)
         .current_dir(tempdir.to_str().expect(

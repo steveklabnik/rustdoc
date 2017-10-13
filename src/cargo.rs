@@ -5,6 +5,7 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
+use analysis_data::config::Config as AnalysisConfig;
 use serde_json;
 
 use Config;
@@ -92,10 +93,20 @@ where
         .ok_or("Expected manifest_path to point to Cargo.toml")?
         .join("target/rls");
 
+    let analysis_config = AnalysisConfig {
+        full_docs: true,
+        pub_only: true,
+        ..Default::default()
+    };
+
     command
         .arg("check")
         .arg("--manifest-path")
         .arg(&config.manifest_path)
+        .env(
+            "RUST_SAVE_ANALYSIS_CONFIG",
+            serde_json::to_string(&analysis_config)?,
+        )
         .env("RUSTFLAGS", "-Z save-analysis")
         .env("CARGO_TARGET_DIR", target_dir)
         .stderr(Stdio::piped())
