@@ -76,6 +76,11 @@ error_chain! {
             description("The JSON pointer did not point at a string")
             display("The JSON pointer did not point at a string: {:?}", value)
         }
+        UnexpectedPass(value: String, re: String) {
+            description("The value matched the regular expression, but it shouldn't")
+            display("The value '{}' matched the regular expression '{}' but it shouldn't",
+                    value, re)
+        }
     }
 }
 
@@ -252,13 +257,18 @@ fn run_test(json: &serde_json::Value, case: TestCase) -> Result<()> {
         "The JSON pointer pointed at a type other than string",
     )?;
 
-    if case.regex.is_match(value) == !case.negated {
-        Ok(())
-    } else {
+    if case.regex.is_match(&value) && case.negated {
+        bail!(ErrorKind::UnexpectedPass(
+            value.to_owned(),
+            case.regex.as_str().to_owned(),
+        ));
+    } else if !case.regex.is_match(&value) && !case.negated {
         bail!(ErrorKind::ValueMismatch(
             value.to_owned(),
             case.regex.as_str().to_owned(),
         ));
+    } else {
+        Ok(())
     }
 }
 
@@ -364,6 +374,16 @@ mod source_tests {
                 negated: true,
             },
         ).unwrap();
+
+        let err = super::run_test(
+            &json,
+            TestCase {
+                pointer: "/test".into(),
+                regex: Regex::new("value").unwrap(),
+                negated: true,
+            },
+        ).unwrap_err();
+        assert_err!(err, ErrorKind::UnexpectedPass);
 
         let err = super::run_test(
             &json,
