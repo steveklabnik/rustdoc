@@ -3,7 +3,6 @@
 use std::io::BufReader;
 use std::io::prelude::*;
 use std::path::Path;
-use std::process::{Command, Stdio};
 
 use serde_json;
 
@@ -12,39 +11,10 @@ use Verbosity;
 use error::*;
 use ui::Ui;
 
-/// The kinds of targets that we can document.
-#[derive(Debug, PartialEq, Eq)]
-pub enum TargetKind {
-    /// A `bin` target.
-    Binary,
-
-    /// A `lib` target.
-    Library,
-}
-
-/// A target of documentation.
-#[derive(Debug, PartialEq, Eq)]
-pub struct Target {
-    /// The kind of the target.
-    pub kind: TargetKind,
-
-    /// The name of the target.
-    ///
-    /// This is *not* the name of the target's crate, which is used to retrieve the analysis data.
-    /// Use the [`crate_name`] method instead.
-    ///
-    /// [`crate_name`]: ./struct.Target.html#method.crate_name
-    pub name: String,
-}
-
-impl Target {
-    /// Returns the name of the target's crate.
-    ///
-    /// This name is equivalent to the target's name, with dashes replaced by underscores.
-    pub fn crate_name(&self) -> String {
-        self.name.replace('-', "_")
-    }
-}
+mod commands;
+mod command_bridge;
+mod target;
+pub use cargo::target::*;
 
 /// Generate and parse the metadata of a cargo project.
 ///
@@ -52,13 +22,8 @@ impl Target {
 ///
 /// - `manifest_path`: The path to the crate's `Cargo.toml`
 pub fn retrieve_metadata(manifest_path: &Path) -> Result<serde_json::Value> {
-    let output = Command::new("cargo")
-        .arg("metadata")
-        .arg("--manifest-path")
-        .arg(manifest_path)
-        .arg("--no-deps")
-        .arg("--format-version")
-        .arg("1")
+    let output = commands::retrieve_metadata(manifest_path)
+        .to_command()
         .output()?;
 
     if !output.status.success() {
@@ -80,39 +45,13 @@ pub fn retrieve_metadata(manifest_path: &Path) -> Result<serde_json::Value> {
 /// - `config`: Rustdoc configuration
 /// - `target`: The target that we should generate the analysis data for
 /// - `report_progress`: A closure that should be called to report a progress message
-pub fn generate_analysis<F>(config: &Config, target: &Target, report_progress: F) -> Result<()>
+pub fn generate_analysis<F>(config: &Config, _target: &Target, report_progress: F) -> Result<()>
 where
     F: Fn(&str) -> (),
 {
-    let mut command = Command::new("cargo");
-
-    let target_dir = config
-        .manifest_path
-        .parent()
-        .ok_or("Expected manifest_path to point to Cargo.toml")?
-        .join("target/rls");
-
-    command
-        .arg("check")
-        .arg("--manifest-path")
-        .arg(&config.manifest_path)
-        .env("RUSTFLAGS", "-Z save-analysis")
-        .env("CARGO_TARGET_DIR", target_dir)
-        .stderr(Stdio::piped())
-        .stdout(Stdio::null());
-
-    if let Verbosity::Verbose = *config.ui.verbosity() {
-        command.arg("--verbose");
-    }
-
-    match target.kind {
-        TargetKind::Library => {
-            command.arg("--lib");
-        }
-        TargetKind::Binary => {
-            command.args(&["--bin", &target.name]);
-        }
-    }
+    let is_verbose = &Verbosity::Verbose == config.ui.verbosity();
+    let mut command = commands::generate_analysis(&config.manifest_path, is_verbose)?
+        .to_command();
 
     let mut child = command.spawn()?;
 
