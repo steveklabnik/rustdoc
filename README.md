@@ -87,7 +87,13 @@ Currently, it only builds the given example. Do it as follow:
 cargo run --release -- --manifest-path=example/Cargo.toml
 ```
 
-Then open a web browser and open "rustdoc/example/target/doc/index.html".
+Then serve "rustdoc/example/target/doc/index.html" with a webserver, for example:
+
+```
+$ python -m SimpleHTTPServer PORT
+```
+
+and open `http://localhost:PORT` in a web browser.
 
 ## Known issues (and their solution)
 
