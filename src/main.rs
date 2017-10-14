@@ -55,6 +55,9 @@ fn run() -> rustdoc::error::Result<()> {
         .subcommand(SubCommand::with_name("open").about(
             "opens the documentation in a web browser",
         ))
+        .subcommand(SubCommand::with_name("test").about(
+            "runs documentation tests in the current crate",
+        ))
         .get_matches();
 
     // unwrap is okay because we take a default value
@@ -83,6 +86,10 @@ fn run() -> rustdoc::error::Result<()> {
                 build(&config, ALL_ARTIFACTS)?;
             }
             config.open_docs()?;
+        }
+        ("test", _) => {
+            build(&config, ALL_ARTIFACTS)?;
+            rustdoc::test(&config)?;
         }
         // default is to build
         _ => build(&config, ALL_ARTIFACTS)?,
