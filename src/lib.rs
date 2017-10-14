@@ -86,6 +86,11 @@ impl Config {
         self.root_path().join("target").join("doc")
     }
 
+    /// Returns the path to the generated documentation.
+    pub fn documentation_path(&self) -> PathBuf {
+        self.output_path().join("data.json")
+    }
+
     /// Open the generated docs in a web browser.
     pub fn open_docs(&self) -> Result<()> {
         open::that(self.output_path().join("index.html"))?;
@@ -114,8 +119,7 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
 
         let json = create_json(&config.host, &target.crate_name())?;
 
-        let json_path = output_path.join("data.json");
-        let mut file = File::create(json_path)?;
+        let mut file = File::create(config.documentation_path())?;
         file.write_all(json.as_bytes())?;
     }
 
