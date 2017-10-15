@@ -22,7 +22,6 @@ extern crate rls_data as analysis_data;
 extern crate syn;
 extern crate tempdir;
 
-pub mod assets;
 pub mod cargo;
 pub mod error;
 pub mod json;
@@ -30,14 +29,14 @@ pub mod json;
 mod test;
 mod ui;
 
+use std::env;
 use std::fs::{self, File};
 use std::io::prelude::*;
 use std::io;
 use std::iter;
 use std::path::{Path, PathBuf};
-use std::process;
+use std::process::{self, Command};
 
-use assets::Asset;
 use cargo::Target;
 use error::*;
 use json::Documentation;
@@ -59,10 +58,6 @@ pub struct Config {
 
     /// Contains the Cargo analysis output for the crate being documented
     host: analysis::AnalysisHost,
-
-    /// Contains all of the `Asset`s that will be output at the end (e.g. JSON, CSS, HTML and/or
-    /// JS)
-    assets: Vec<Asset>,
 }
 
 impl Config {
@@ -72,7 +67,7 @@ impl Config {
     /// ## Arguments
     ///
     /// - `manifest_path`: The path to the `Cargo.toml` of the crate being documented
-    pub fn new(verbosity: Verbosity, manifest_path: PathBuf, assets: Vec<Asset>) -> Result<Config> {
+    pub fn new(verbosity: Verbosity, manifest_path: PathBuf) -> Result<Config> {
         let host = analysis::AnalysisHost::new(analysis::Target::Debug);
 
         if !manifest_path.is_file() || !manifest_path.ends_with("Cargo.toml") {
@@ -83,7 +78,6 @@ impl Config {
             ui: Ui::new(verbosity),
             manifest_path,
             host,
-            assets,
         })
     }
 
@@ -135,16 +129,40 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
         file.write_all(serde_json::to_string(&docs)?.as_bytes())?;
     }
 
-    // now that we've written out the data, we can write out the rest of it
+    // now that we've written out the data, we shell out to the frontend to generate the output.
     if artifacts.contains(&"frontend") {
-        let task = config.ui.start_task("Copying Assets");
+        let task = config.ui.start_task("Generating documentation");
         task.report("In Progress");
 
-        let assets_path = output_path.join("assets");
-        fs::create_dir_all(&assets_path)?;
+        let frontend = env::var("RUSTDOC_FRONTEND").unwrap_or_else(|_| {
+            // If we're in debug mode, use the binary in this repository. Otherwise, try to
+            // find one in PATH.
+            if cfg!(debug_assertions) {
+                String::from(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/target/debug/rustdoc-ember"
+                ))
+            } else {
+                String::from("rustdoc-ember")
+            }
+        });
 
-        for asset in &config.assets {
-            assets::create_asset_file(asset.name, &output_path, asset.contents)?;
+        let output = Command::new(&frontend)
+            .arg("--output")
+            .arg(config.output_path())
+            .arg(config.output_path().join("data.json"))
+            .output()
+            .map_err(|e| if e.kind() == io::ErrorKind::NotFound {
+                Error::with_chain(e, format!("frontend `{}` not found", frontend))
+            } else {
+                e.into()
+            })?;
+
+        if !output.status.success() {
+            task.error();
+            drop(task);
+            println!("\n{}", String::from_utf8_lossy(&output.stderr));
+            bail!("frontend `{}` did not execute successfully", frontend);
         }
     }
 

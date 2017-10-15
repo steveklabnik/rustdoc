@@ -62,7 +62,6 @@ fn run() -> rustdoc::error::Result<()> {
 
     // unwrap is okay because we take a default value
     let manifest_path = PathBuf::from(&matches.value_of("manifest-path").unwrap());
-    let assets = include!(concat!(env!("OUT_DIR"), "/asset.in"));
     let verbosity = if matches.is_present("quiet") {
         Verbosity::Quiet
     } else if matches.is_present("verbose") {
@@ -70,7 +69,7 @@ fn run() -> rustdoc::error::Result<()> {
     } else {
         Verbosity::Normal
     };
-    let config = Config::new(verbosity, manifest_path, assets)?;
+    let config = Config::new(verbosity, manifest_path)?;
 
     match matches.subcommand() {
         ("build", Some(matches)) => {

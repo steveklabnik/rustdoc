@@ -7,15 +7,14 @@ extern crate quote;
 extern crate glob;
 
 use std::env;
-use std::fmt;
 use std::fs::File;
 use std::fs;
 use std::io::{Write, BufWriter, stderr};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::thread;
 
-use quote::Ident;
+use quote::{Ident, Tokens, ToTokens};
 use glob::glob;
 
 error_chain! {
@@ -28,7 +27,7 @@ error_chain! {
 
 const SOURCE_TEST_DIR: &str = "tests/source";
 
-// Location of the dist folder
+/// Location of the ember frontend dist folder
 const DIST: &str = "frontend/dist/";
 
 fn run() -> Result<()> {
@@ -77,10 +76,7 @@ fn acquire_assets() -> Result<Vec<Asset>> {
         for entry in glob(&format!("{}{}", DIST, w))? {
             let path = entry?;
             if path.is_file() {
-                output.push(Asset {
-                    // If the directory isn't valid this wouldn't have worked.
-                    path: String::from(path.to_str().unwrap()).replace("\\", "/"),
-                });
+                output.push(Asset { path });
             }
         }
     }
@@ -88,51 +84,42 @@ fn acquire_assets() -> Result<Vec<Asset>> {
     Ok(output)
 }
 
-/// Write to asset.in which is a vec expression of static assets that will be
-/// imported using the include!() macro for the `Config` struct
+/// Write to `asset.in`, which is a `vec` expression of static assets that will be embedded in the
+/// `rustdoc-ember` source with the `include!` macro.
 fn write_asset_file() -> Result<()> {
     let assets = acquire_assets()?;
-    let asset_out = Path::new(&env::var("OUT_DIR").unwrap()).join("asset.in");
+    let tokens = quote!(vec!#assets);
 
+    let asset_out = Path::new(&env::var("OUT_DIR").unwrap()).join("asset.in");
     let mut writer = BufWriter::new(File::create(asset_out)?);
-    write!(writer, "vec![")?;
-    for asset in assets {
-        write!(writer, "{},", asset)?;
-    }
-    write!(writer, "]")?;
+    writer.write_all(tokens.as_str().as_bytes())?;
 
     Ok(())
 }
 
 /// Intermediary data structure used to hold the path of the file
 pub struct Asset {
-    pub path: String,
+    pub path: PathBuf,
 }
 
-// This gives us the ToString impl as well. We're using this to write out what
-// an asset would look like for the actual program into the asset.in file.
-impl fmt::Display for Asset {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // We know this will give the proper name so we can do this to get the
-        // proper name for the asset without the rest of the beginning path
+impl ToTokens for Asset {
+    /// Turns an asset struct into a constructor expression.
+    ///
+    /// The inserted tokens should match `rustdoc-ember`'s definition of `Asset` exactly.
+    fn to_tokens(&self, tokens: &mut Tokens) {
         let name = self.path
-            .split(DIST)
-            .skip(1)
-            .collect::<Vec<&str>>()
-            .pop()
+            .strip_prefix(DIST)
+            .ok()
+            .and_then(|name| name.to_str())
             .unwrap();
+        let path = self.path.to_str().unwrap();
 
-        let asset =
-            format!(
-            r#"rustdoc::assets::Asset {{
-                name: "{name}",
-                contents: include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/{path}")),
-            }}"#,
-            name = name,
-            path = self.path,
-        );
-
-        write!(f, "{}", asset)
+        tokens.append(quote! {
+            Asset {
+                path: #name,
+                contents: include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/", #path)),
+            }
+        });
     }
 }
 

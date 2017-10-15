@@ -8,15 +8,22 @@ license = "MIT/Apache-2.0"
 name = "rustdoc"
 doc = false
 
+[[bin]]
+name = "rustdoc-ember"
+doc = false
+
 [lib]
 # see https://github.com/steveklabnik/rustdoc/issues/22
 doctest = false
 
 [dependencies]
 clap = "2.24.2"
+env_logger = "0.4"
 error-chain = "0.11"
 indicatif = "0.6.0"
 indoc = "0.2"
+lazy_static = "0.2"
+log = "0.3"
 open = "1.2.0"
 pulldown-cmark = { version = "0.1", default-features = false }
 quote = "0.3"
@@ -30,8 +37,9 @@ tempdir = "0.3"
 
 [build-dependencies]
 error-chain = "0.11"
-quote = "0.3"
 glob = "0.2.11"
+lazy_static = "0.2"
+quote = "0.3"
 
 [dev-dependencies]
 error-chain = "0.11"
