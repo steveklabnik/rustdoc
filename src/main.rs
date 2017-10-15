@@ -13,7 +13,7 @@ use std::io::{Write, stderr};
 use std::process;
 use std::path::PathBuf;
 
-static ALL_ARTIFACTS: &[&str] = &["assets", "json"];
+static ALL_ARTIFACTS: &[&str] = &["frontend", "json"];
 
 fn run() -> rustdoc::error::Result<()> {
     let version = env!("CARGO_PKG_VERSION");

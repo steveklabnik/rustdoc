@@ -136,7 +136,7 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
     }
 
     // now that we've written out the data, we can write out the rest of it
-    if artifacts.contains(&"assets") {
+    if artifacts.contains(&"frontend") {
         let task = config.ui.start_task("Copying Assets");
         task.report("In Progress");
 
