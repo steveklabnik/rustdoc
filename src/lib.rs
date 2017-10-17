@@ -9,31 +9,43 @@ extern crate error_chain;
 extern crate serde_derive;
 #[cfg_attr(test, macro_use)]
 extern crate serde_json;
+#[cfg_attr(test, macro_use)]
+extern crate indoc;
+#[cfg_attr(test, macro_use)]
+extern crate quote;
 
 extern crate indicatif;
 extern crate open;
+extern crate pulldown_cmark;
 extern crate rls_analysis as analysis;
 extern crate rls_data as analysis_data;
+extern crate syn;
+extern crate tempdir;
 
 pub mod assets;
 pub mod cargo;
 pub mod error;
 pub mod json;
 
+mod test;
 mod ui;
-
-pub use json::create_json;
 
 use std::fs::{self, File};
 use std::io::prelude::*;
+use std::io;
+use std::iter;
 use std::path::{Path, PathBuf};
+use std::process;
 
 use assets::Asset;
 use cargo::Target;
 use error::*;
+use json::Documentation;
+use test::TestResult;
 use ui::Ui;
 
 pub use error::{Error, ErrorKind};
+pub use json::create_documentation;
 pub use ui::Verbosity;
 
 /// A structure that contains various fields that hold data in order to generate doc output.
@@ -86,6 +98,11 @@ impl Config {
         self.root_path().join("target").join("doc")
     }
 
+    /// Returns the path to the generated documentation.
+    pub fn documentation_path(&self) -> PathBuf {
+        self.output_path().join("data.json")
+    }
+
     /// Open the generated docs in a web browser.
     pub fn open_docs(&self) -> Result<()> {
         open::that(self.output_path().join("index.html"))?;
@@ -112,11 +129,10 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
         let task = config.ui.start_task("Generating JSON");
         task.report("In Progress");
 
-        let json = create_json(&config.host, &target.crate_name())?;
+        let docs = json::create_documentation(&config.host, &target.crate_name())?;
 
-        let json_path = output_path.join("data.json");
-        let mut file = File::create(json_path)?;
-        file.write_all(json.as_bytes())?;
+        let mut file = File::create(config.documentation_path())?;
+        file.write_all(serde_json::to_string(&docs)?.as_bytes())?;
     }
 
     // now that we've written out the data, we can write out the rest of it
@@ -130,6 +146,93 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
         for asset in &config.assets {
             assets::create_asset_file(asset.name, &output_path, asset.contents)?;
         }
+    }
+
+    Ok(())
+}
+
+/// Run all documentation tests.
+pub fn test(config: &Config) -> Result<()> {
+    let doc_json = File::open(config.documentation_path()).chain_err(
+        || "could not find generated documentation",
+    )?;
+    let docs: Documentation = serde_json::from_reader(doc_json)?;
+
+    let krate = docs.data.as_ref().unwrap();
+    let tests: Vec<_> = iter::once(krate)
+        .chain(docs.included.iter().flat_map(|data| data))
+        .map(|data| (&data.id, test::gather_tests(&data)))
+        .collect();
+
+    // Run the tests.
+    static SUCCESS_MESSAGE: &str = "ok";
+    static FAILURE_MESSAGE: &str = "FAILED";
+
+    let num_tests: usize = tests.iter().map(|&(_, ref tests)| tests.len()).sum();
+    println!("running {} tests", num_tests);
+
+    let mut passed = 0;
+    let mut failures = vec![];
+    for (id, tests) in tests {
+        for (number, test) in tests.iter().enumerate() {
+            // FIXME: Make the name based off the file and line number.
+            let name = format!("{} - {}", id, number);
+            print!("test {} ... ", name);
+            io::stdout().flush()?;
+
+            let message = match test::run_test(config, test)? {
+                TestResult::Success => {
+                    passed += 1;
+                    SUCCESS_MESSAGE
+                }
+                TestResult::Failure(output) => {
+                    failures.push((name, output));
+                    FAILURE_MESSAGE
+                }
+            };
+
+            println!("{}", message);
+        }
+    }
+
+    if !failures.is_empty() {
+        // Print the output of each failure.
+        for &(ref name, ref output) in &failures {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let stdout = stdout.trim();
+
+            if !stdout.is_empty() {
+                println!("\n---- {} stdout ----\n{}", name, stdout);
+            }
+
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            let stderr = stderr.trim();
+
+            if !stderr.is_empty() {
+                println!("\n---- {} stderr ----\n{}", name, stderr);
+            }
+        }
+
+        // Print a summary of all failures at the bottom.
+        println!("\nfailures:");
+        for &(ref name, _) in &failures {
+            println!("    {}", name);
+        }
+    }
+
+    println!(
+        "\ntest result: {}. {} passed; {} failed; 0 ignored; 0 measured; 0 filtered out",
+        if failures.is_empty() {
+            SUCCESS_MESSAGE
+        } else {
+            FAILURE_MESSAGE
+        },
+        passed,
+        failures.len()
+    );
+
+    if !failures.is_empty() {
+        process::exit(1);
     }
 
     Ok(())

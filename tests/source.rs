@@ -28,6 +28,7 @@ extern crate serde_json;
 extern crate regex;
 extern crate rls_analysis as analysis;
 extern crate rls_data as analysis_data;
+extern crate serde;
 extern crate shlex;
 extern crate tempdir;
 
@@ -169,9 +170,8 @@ fn check(source_file: &Path, host: &AnalysisHost) -> Result<()> {
         .file_stem()
         .and_then(|stem| stem.to_str())
         .ok_or_else(|| "Invalid source file stem")?;
-    let data = rustdoc::create_json(host, package_name)?;
-
-    let json = serde_json::from_str(&data)?;
+    let data = rustdoc::create_documentation(host, package_name)?;
+    let json = serde_json::to_value(&data)?;
 
     let source = BufReader::new(File::open(source_file)?);
     let mut found_test = false;

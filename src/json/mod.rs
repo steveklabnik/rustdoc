@@ -5,14 +5,15 @@ mod api;
 pub use self::api::*;
 
 use analysis::{AnalysisHost, DefKind};
-use serde_json;
 
 use error::*;
 
 use std::collections::VecDeque;
 
-/// This creates the JSON documentation from the given `AnalysisHost`.
-pub fn create_json(host: &AnalysisHost, crate_name: &str) -> Result<String> {
+/// Creates the documentation from the given `AnalysisHost`.
+///
+/// The documentation can be serialized to JSON.
+pub fn create_documentation(host: &AnalysisHost, crate_name: &str) -> Result<Documentation> {
     // This function does a lot, so here's the plan:
     //
     // First, we need to process the root def and get its list of children.
@@ -108,7 +109,5 @@ pub fn create_json(host: &AnalysisHost, crate_name: &str) -> Result<String> {
         included.push(document);
     }
 
-    Ok(serde_json::to_string(
-        &Documentation::new().data(document).included(included),
-    )?)
+    Ok(Documentation::new().data(document).included(included))
 }
