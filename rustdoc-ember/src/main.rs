@@ -83,3 +83,13 @@ fn main() {
         std::process::exit(1);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ASSETS;
+
+    #[test]
+    fn assets() {
+        assert!(!ASSETS.is_empty());
+    }
+}
