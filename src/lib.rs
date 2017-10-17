@@ -139,13 +139,16 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
         task.report("In Progress");
 
         let frontend = env::var("RUSTDOC_FRONTEND").unwrap_or_else(|_| {
-            // If we're in debug mode, use the binary in this repository. Otherwise, try to
+            // If we're being run from cargo, use the binary in this repository. Otherwise, try to
             // find one in PATH.
-            if cfg!(debug_assertions) {
-                String::from(concat!(
-                    env!("CARGO_MANIFEST_DIR"),
-                    "/target/debug/rustdoc-ember"
-                ))
+            if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
+                let profile = if cfg!(debug_assertions) {
+                    "debug"
+                } else {
+                    "release"
+                };
+
+                format!("{}/target/{}/rustdoc-ember", manifest_dir, profile)
             } else {
                 String::from("rustdoc-ember")
             }

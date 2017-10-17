@@ -101,7 +101,7 @@ to a path to a frontend binary.
 To build and view documentation:
 
 ```
-cargo build --release
+cargo build --all --release
 cargo run --release --bin rustdoc -- --manifest-path=example/Cargo.toml open
 ```
 
