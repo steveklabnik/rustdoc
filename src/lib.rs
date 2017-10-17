@@ -22,7 +22,6 @@ extern crate rls_data as analysis_data;
 extern crate syn;
 extern crate tempdir;
 
-pub mod assets;
 pub mod cargo;
 pub mod error;
 pub mod json;
@@ -30,14 +29,14 @@ pub mod json;
 mod test;
 mod ui;
 
+use std::env;
 use std::fs::{self, File};
 use std::io::prelude::*;
 use std::io;
 use std::iter;
 use std::path::{Path, PathBuf};
-use std::process;
+use std::process::{self, Command, Stdio};
 
-use assets::Asset;
 use cargo::Target;
 use error::*;
 use json::Documentation;
@@ -59,10 +58,6 @@ pub struct Config {
 
     /// Contains the Cargo analysis output for the crate being documented
     host: analysis::AnalysisHost,
-
-    /// Contains all of the `Asset`s that will be output at the end (e.g. JSON, CSS, HTML and/or
-    /// JS)
-    assets: Vec<Asset>,
 }
 
 impl Config {
@@ -72,7 +67,7 @@ impl Config {
     /// ## Arguments
     ///
     /// - `manifest_path`: The path to the `Cargo.toml` of the crate being documented
-    pub fn new(verbosity: Verbosity, manifest_path: PathBuf, assets: Vec<Asset>) -> Result<Config> {
+    pub fn new(verbosity: Verbosity, manifest_path: PathBuf) -> Result<Config> {
         let host = analysis::AnalysisHost::new(analysis::Target::Debug);
 
         if !manifest_path.is_file() || !manifest_path.ends_with("Cargo.toml") {
@@ -83,7 +78,6 @@ impl Config {
             ui: Ui::new(verbosity),
             manifest_path,
             host,
-            assets,
         })
     }
 
@@ -125,26 +119,64 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
     let output_path = config.output_path();
     fs::create_dir_all(&output_path)?;
 
-    if artifacts.contains(&"json") {
+    let json = {
         let task = config.ui.start_task("Generating JSON");
         task.report("In Progress");
-
         let docs = json::create_documentation(&config.host, &target.crate_name())?;
+        serde_json::to_string(&docs)?
+    };
 
-        let mut file = File::create(config.documentation_path())?;
-        file.write_all(serde_json::to_string(&docs)?.as_bytes())?;
+    if artifacts.contains(&"json") {
+        let json_path = output_path.join("data.json");
+        let mut file = File::create(json_path)?;
+        file.write_all(json.as_bytes())?;
     }
 
-    // now that we've written out the data, we can write out the rest of it
-    if artifacts.contains(&"assets") {
-        let task = config.ui.start_task("Copying Assets");
+    // Now that we've generated the documentation JSON, we start the frontend as a subprocess to
+    // generate the final output.
+    if artifacts.contains(&"frontend") {
+        let task = config.ui.start_task("Generating documentation");
         task.report("In Progress");
 
-        let assets_path = output_path.join("assets");
-        fs::create_dir_all(&assets_path)?;
+        let frontend = env::var("RUSTDOC_FRONTEND").unwrap_or_else(|_| {
+            // If we're being run from cargo, use the binary in this repository. Otherwise, try to
+            // find one in PATH.
+            if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
+                let profile = if cfg!(debug_assertions) {
+                    "debug"
+                } else {
+                    "release"
+                };
 
-        for asset in &config.assets {
-            assets::create_asset_file(asset.name, &output_path, asset.contents)?;
+                format!("{}/target/{}/rustdoc-ember", manifest_dir, profile)
+            } else {
+                String::from("rustdoc-ember")
+            }
+        });
+
+        let mut frontend_proc = Command::new(&frontend)
+            .arg("--output")
+            .arg(config.output_path())
+            .stdin(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| if e.kind() == io::ErrorKind::NotFound {
+                Error::with_chain(e, format!("frontend `{}` not found", frontend))
+            } else {
+                e.into()
+            })?;
+
+        {
+            let stdin = frontend_proc.stdin.as_mut().unwrap();
+            stdin.write_all(json.as_bytes())?;
+        }
+
+        let output = frontend_proc.wait_with_output()?;
+        if !output.status.success() {
+            task.error();
+            drop(task);
+            println!("\n{}", String::from_utf8_lossy(&output.stderr));
+            bail!("frontend `{}` did not execute successfully", frontend);
         }
     }
 
