@@ -14,11 +14,12 @@ use std::process;
 use std::path::PathBuf;
 
 static ALL_ARTIFACTS: &[&str] = &["frontend", "json"];
+static DEFAULT_ARTIFACTS: &[&str] = &["frontend"];
 
 fn run() -> rustdoc::error::Result<()> {
     let version = env!("CARGO_PKG_VERSION");
 
-    let joined_artifacts = ALL_ARTIFACTS.join(",");
+    let joined_artifacts = DEFAULT_ARTIFACTS.join(",");
     let matches = App::new("rustdoc")
         .version(version)
         .author("Steve Klabnik <steve@steveklabnik.com>")
@@ -46,7 +47,7 @@ fn run() -> rustdoc::error::Result<()> {
                         .takes_value(true)
                         .possible_values(ALL_ARTIFACTS)
                         .default_value(&joined_artifacts)
-                        .help("Build artifacts to produce. Defaults to everything."),
+                        .help("Build artifacts to produce. Defaults to just the frontend."),
                 )
                 .arg(Arg::with_name("open").short("o").long("open").help(
                     "Open the docs in a web browser after building.",
@@ -82,7 +83,7 @@ fn run() -> rustdoc::error::Result<()> {
         ("open", _) => {
             // First build the docs if they are not yet built.
             if !config.output_path().exists() {
-                build(&config, ALL_ARTIFACTS)?;
+                build(&config, DEFAULT_ARTIFACTS)?;
             }
             config.open_docs()?;
         }
@@ -91,7 +92,7 @@ fn run() -> rustdoc::error::Result<()> {
             rustdoc::test(&config)?;
         }
         // default is to build
-        _ => build(&config, ALL_ARTIFACTS)?,
+        _ => build(&config, DEFAULT_ARTIFACTS)?,
     }
     Ok(())
 }

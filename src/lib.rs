@@ -35,7 +35,7 @@ use std::io::prelude::*;
 use std::io;
 use std::iter;
 use std::path::{Path, PathBuf};
-use std::process::{self, Command};
+use std::process::{self, Command, Stdio};
 
 use cargo::Target;
 use error::*;
@@ -119,17 +119,21 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
     let output_path = config.output_path();
     fs::create_dir_all(&output_path)?;
 
-    if artifacts.contains(&"json") {
+    let json = {
         let task = config.ui.start_task("Generating JSON");
         task.report("In Progress");
-
         let docs = json::create_documentation(&config.host, &target.crate_name())?;
+        serde_json::to_string(&docs)?
+    };
 
-        let mut file = File::create(config.documentation_path())?;
-        file.write_all(serde_json::to_string(&docs)?.as_bytes())?;
+    if artifacts.contains(&"json") {
+        let json_path = output_path.join("data.json");
+        let mut file = File::create(json_path)?;
+        file.write_all(json.as_bytes())?;
     }
 
-    // now that we've written out the data, we shell out to the frontend to generate the output.
+    // Now that we've generated the documentation JSON, we start the frontend as a subprocess to
+    // generate the final output.
     if artifacts.contains(&"frontend") {
         let task = config.ui.start_task("Generating documentation");
         task.report("In Progress");
@@ -147,17 +151,24 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
             }
         });
 
-        let output = Command::new(&frontend)
+        let mut frontend_proc = Command::new(&frontend)
             .arg("--output")
             .arg(config.output_path())
-            .arg(config.output_path().join("data.json"))
-            .output()
+            .stdin(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
             .map_err(|e| if e.kind() == io::ErrorKind::NotFound {
                 Error::with_chain(e, format!("frontend `{}` not found", frontend))
             } else {
                 e.into()
             })?;
 
+        {
+            let stdin = frontend_proc.stdin.as_mut().unwrap();
+            stdin.write_all(json.as_bytes())?;
+        }
+
+        let output = frontend_proc.wait_with_output()?;
         if !output.status.success() {
             task.error();
             drop(task);
