@@ -20,7 +20,7 @@ before_install:
 script:
   - rustfmt --write-mode diff build.rs
   - rustfmt --write-mode diff $(find src -type f | grep .rs)
-  - rustfmt $(find tests -type f | grep .rs) || true
+    #- rustfmt $(find tests -type f | grep .rs) || true
   - cd frontend && npm install && npm run prod && npm run test
   - cd .. && cargo build --all && cargo test --all
   - cargo run -- --manifest-path=example/Cargo.toml build
