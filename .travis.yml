@@ -22,5 +22,5 @@ script:
   - rustfmt --write-mode diff $(find src -type f | grep .rs)
   - rustfmt $(find tests -type f | grep .rs) || true
   - cd frontend && npm install && npm run prod && npm run test
-  - cd .. && cargo build && cargo test && cd example
-  - ../target/debug/rustdoc build
+  - cd .. && cargo build --all && cargo test --all
+  - cargo run -- --manifest-path=example/Cargo.toml build
