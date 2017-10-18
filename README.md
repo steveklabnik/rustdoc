@@ -90,8 +90,8 @@ conforms to a particular interface.
 - The frontend must allow an `--output <path>` argument, for specifying where
   the frontend should output its files.
 - The frontend is free to generate whatever files it pleases in the output
-  directory, but typical frontends will at least generate `index.html` at the
-  root.
+  directory, but `rustdoc` expects that frontends generate an `index.html` file
+  at the root or the crate root (`crate_name/index.html`).
 
 To use an alternative frontend, set the `RUSTDOC_FRONTEND` environment variable
 to a path to a frontend binary.

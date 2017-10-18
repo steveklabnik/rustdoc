@@ -99,7 +99,18 @@ impl Config {
 
     /// Open the generated docs in a web browser.
     pub fn open_docs(&self) -> Result<()> {
-        open::that(self.output_path().join("index.html"))?;
+        let mut index = self.output_path().join("index.html");
+
+        // If we can't find the index at the root, try looking in the crate folder.
+        if !index.is_file() {
+            let metadata = cargo::retrieve_metadata(&self.manifest_path)?;
+            let target = cargo::target_from_metadata(&self.ui, &metadata)?;
+            index = self.output_path().join(target.crate_name()).join(
+                "index.html",
+            );
+        }
+
+        open::that(index)?;
         Ok(())
     }
 }
