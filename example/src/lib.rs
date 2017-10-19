@@ -19,9 +19,48 @@ impl ExampleStruct{
     }
 }
 
+/// An enum.
+pub enum SampleEnum {
+    /// An enum variant.
+    EnumVariant,
+}
+
+/// An example function.
+///
+/// This function does stuff!
 pub fn sample_function(x: i32) -> ExampleStruct {
     let _ = x;
     ExampleStruct
+}
+
+/// A type ExampleType.
+type ExampleType = String;
+
+/// An example macro.
+macro_rules! example_macro {
+    () => ( println!("Hello!"); )
+}
+
+/// An example union.
+union example_union {
+    f1: u32,
+    f2: f32,
+}
+
+/// A const.
+const EXAMPLE_CONST: i32 = 5;
+
+/// A static.
+static EXAMPLE_STATIC: i32 = 5;
+
+/// A struct that contains another struct and other fields.
+///
+/// Docs for the ContainerStruct.
+pub struct ContainerStruct {
+    /// These are integer field docs.
+    integer: i32,
+    /// These are docs for the inner struct.
+    inner_struct: ExampleStruct,
 }
 
 /// An example module

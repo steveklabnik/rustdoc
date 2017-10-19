@@ -61,6 +61,19 @@ pub fn create_documentation(host: &AnalysisHost, crate_name: &str) -> Result<Doc
         let (ty, child_ty) = match def.kind {
             DefKind::Mod => (String::from("module"), String::from("modules")),
             DefKind::Struct => (String::from("struct"), String::from("structs")),
+            DefKind::Enum => (String::from("enum"), String::from("enums")),
+            DefKind::Trait => (String::from("trait"), String::from("traits")),
+            DefKind::Function => (String::from("function"), String::from("functions")),
+            DefKind::Type => (String::from("type"), String::from("types")),
+            DefKind::Static => (String::from("static"), String::from("statics")),
+            DefKind::Const => (String::from("const"), String::from("consts")),
+            DefKind::Field => (String::from("field"), String::from("fields")),
+            DefKind::Tuple => continue,
+            DefKind::Local => continue,
+            // The below DefKinds are not supported in rls-analysis
+            // DefKind::Union => (String::from("union"), String::from("unions")),
+            // DefKind::Macro => (String::from("macro"), String::from("macros")),
+            // DefKind::Method => (String::from("method"), String::from("methods")),
             _ => continue,
         };
 
@@ -86,9 +99,22 @@ pub fn create_documentation(host: &AnalysisHost, crate_name: &str) -> Result<Doc
 
         // Using the item's metadata we create a new `Document` type to be put in the eventual
         // serialized JSON.
-        let (ty, child_ty) = match def.kind {
-            DefKind::Mod => (String::from("module"), String::from("child_modules")),
-            DefKind::Struct => (String::from("struct"), String::from("child_structs")),
+        let ty = match def.kind {
+            DefKind::Mod => String::from("module"),
+            DefKind::Struct => String::from("struct"),
+            DefKind::Enum => String::from("enum"),
+            DefKind::Trait => String::from("trait"),
+            DefKind::Function => String::from("function"),
+            DefKind::Type => String::from("type"),
+            DefKind::Static => String::from("static"),
+            DefKind::Const => String::from("const"),
+            DefKind::Field => String::from("field"),
+            DefKind::Tuple => continue,
+            DefKind::Local => continue,
+            // The below DefKinds are not supported in rls-analysis
+            // DefKind::Union => (String::from("union"), String::from("unions")),
+            // DefKind::Macro => (String::from("macro"), String::from("macros")),
+            // DefKind::Method => (String::from("method"), String::from("methods")),
             _ => continue,
         };
 
@@ -100,6 +126,24 @@ pub fn create_documentation(host: &AnalysisHost, crate_name: &str) -> Result<Doc
 
         for id in child_ids {
             let def = host.get_def(id).unwrap();
+            let (ty, child_ty) = match def.kind {
+                DefKind::Mod => (String::from("module"), String::from("child_modules")),
+                DefKind::Struct => (String::from("struct"), String::from("child_structs")),
+                DefKind::Enum => (String::from("enum"), String::from("child_enums")),
+                DefKind::Trait => (String::from("trait"), String::from("child_traits")),
+                DefKind::Function => (String::from("function"), String::from("child_functions")),
+                DefKind::Type => (String::from("type"), String::from("child_types")),
+                DefKind::Static => (String::from("static"), String::from("child_statics")),
+                DefKind::Const => (String::from("const"), String::from("child_consts")),
+                DefKind::Field => (String::from("field"), String::from("child_fields")),
+                DefKind::Tuple => continue,
+                DefKind::Local => continue,
+                // The below DefKinds are not supported in rls-analysis
+                // DefKind::Union => (String::from("union"), String::from("unions")),
+                // DefKind::Macro => (String::from("macro"), String::from("macros")),
+                // DefKind::Method => (String::from("method"), String::from("methods")),
+                _ => continue,
+            };
 
             let data = Data::new().ty(ty.clone()).id(def.qualname.clone());
 

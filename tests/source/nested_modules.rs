@@ -1,4 +1,4 @@
-#![crate_type="lib"]
+#![crate_type = "lib"]
 
 // @has /included/0/relationships/child_modules/data/0/type 'module'
 // @has /included/0/relationships/child_modules/data/0/id 'nested_modules::example_module::nested'

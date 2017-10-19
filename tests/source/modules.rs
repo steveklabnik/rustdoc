@@ -6,7 +6,7 @@
 // @has /included/0/type 'module'
 // @has /included/0/id 'modules::module'
 // @has /included/0/attributes/name 'module'
-// @has /included/0/attributes/docs 'a module'
+// @has /included/0/attributes/docs 'A module.'
 
-/// a module
+/// A module.
 pub mod module {}
