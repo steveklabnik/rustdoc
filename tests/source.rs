@@ -336,10 +336,12 @@ fn run_test(json: &serde_json::Value, case: TestCase) -> Result<()> {
     }
 }
 
-// Tests generated from the files in tests/source
-include!(concat!(env!("OUT_DIR"), "/source_generated.rs"));
+/// Tests generated from the files in tests/source
+mod docs {
+    include!(concat!(env!("OUT_DIR"), "/source_generated.rs"));
+}
 
-mod source_tests {
+mod tests {
     #![cfg_attr(feature = "cargo-clippy", allow(trivial_regex))]
 
     use super::*;
