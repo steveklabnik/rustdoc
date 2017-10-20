@@ -43,8 +43,8 @@ fn run() -> io::Result<()> {
 
                 let tempdir = TempDir::new("rustdoc-test").unwrap();
                 let source_file = env::current_dir().unwrap().join(#source_file_path);
-                let host = generate_analysis(&source_file, tempdir.path()).unwrap();
-                if let Err(err) = check(&source_file, &host) {
+                let host = ::generate_analysis(&source_file, tempdir.path()).unwrap();
+                if let Err(err) = ::check(&source_file, &host) {
                     println!("error: {}", err);
 
                     for err in err.iter().skip(1) {

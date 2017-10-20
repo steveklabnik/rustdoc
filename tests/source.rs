@@ -10,6 +10,13 @@
 //! // @has <JSON pointer> '<Regular expression>'
 //! ```
 //!
+//! Long tests may span multiple lines by ending the line with a `\`.
+//!
+//! ```ignore
+//! // @has /a/very/long/json/pointer \
+//! //     'a very long line of documentation'
+//! ```
+//!
 //! This comment requires that the JSON output from `rustdoc` contains a string that matches the
 //! regular expression at the value pointed at by the JSON pointer. See [RFC6901] for JSON pointer
 //! syntax.
@@ -34,7 +41,7 @@ extern crate tempdir;
 
 use std::fs::{self, File};
 use std::io::prelude::*;
-use std::io::{self, BufReader};
+use std::io;
 use std::path::Path;
 use std::process::Command;
 
@@ -173,11 +180,14 @@ fn check(source_file: &Path, host: &AnalysisHost) -> Result<()> {
     let data = rustdoc::create_documentation(host, package_name)?;
     let json = serde_json::to_value(&data)?;
 
-    let source = BufReader::new(File::open(source_file)?);
+    let mut source = String::new();
+    File::open(source_file)?.read_to_string(&mut source)?;
     let mut found_test = false;
-    for line in source.lines() {
-        if let Some(test_case) = parse_test(&line?) {
-            run_test(&json, test_case?)?;
+    for (original_line_number, line) in join_line_continuations(&source) {
+        if let Some(test_case) = parse_test(&line) {
+            run_test(&json, test_case?).chain_err(|| {
+                format!("test failed on line {}", original_line_number)
+            })?;
             if !found_test {
                 found_test = true;
             }
@@ -189,6 +199,60 @@ fn check(source_file: &Path, host: &AnalysisHost) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Finds all of the tests in a given source file, by concatenating tests that span multiple lines.
+///
+/// Returns tuples of the line number that the tests started on and the full source of the test.
+fn join_line_continuations(contents: &str) -> Vec<(usize, String)> {
+    let mut tests = vec![];
+
+    let mut last_line: Option<String> = None;
+    let mut first_line_number = None;
+    let mut concatenated_line = String::new();
+
+    let lines = contents
+        .lines()
+        .map(|line| line.trim_right_matches(|c| c == '\r' || c == '\n'))
+        .enumerate();
+
+    for (line_number, line) in lines {
+        let line_number = line_number + 1;
+        let mut line = if let Some(ref last_line) = last_line {
+            // Strip the common prefix from the last line.
+            line.chars()
+                .zip(last_line.chars())
+                .skip_while(|&(a, b)| a == b)
+                .map(|char_pair| char_pair.0)
+                .collect()
+        } else {
+            String::from(line)
+        };
+
+        if first_line_number.is_none() {
+            first_line_number = Some(line_number);
+        }
+
+        if line.ends_with('\\') {
+            line.pop();
+            if last_line.is_none() {
+                last_line = Some(line.clone());
+            }
+            concatenated_line.push_str(&line);
+        } else {
+            concatenated_line.push_str(&line);
+            tests.push((first_line_number.unwrap(), concatenated_line));
+            last_line = None;
+            first_line_number = None;
+            concatenated_line = String::new();
+        }
+    }
+
+    if last_line.is_some() {
+        panic!("Trailing backslash at the end of the file");
+    }
+
+    tests
 }
 
 /// Optionally parses a test case from a single line. If the line contains a test case, returns a
@@ -272,10 +336,12 @@ fn run_test(json: &serde_json::Value, case: TestCase) -> Result<()> {
     }
 }
 
-// Tests generated from the files in tests/source
-include!(concat!(env!("OUT_DIR"), "/source_generated.rs"));
+/// Tests generated from the files in tests/source
+mod docs {
+    include!(concat!(env!("OUT_DIR"), "/source_generated.rs"));
+}
 
-mod source_tests {
+mod tests {
     #![cfg_attr(feature = "cargo-clippy", allow(trivial_regex))]
 
     use super::*;
@@ -287,6 +353,24 @@ mod source_tests {
                 ref kind => panic!("unexpected error kind: {:?}", kind),
             }
         }
+    }
+
+    #[test]
+    fn join_line_continuations() {
+        let tests = super::join_line_continuations("// @has /test 'test'");
+        assert_eq!(tests, vec![(1, String::from("// @has /test 'test'"))]);
+
+        let tests = super::join_line_continuations("// @has /test 'test'\n// @has /test2 'test2'");
+        assert_eq!(
+            tests,
+            vec![
+                (1, String::from("// @has /test 'test'")),
+                (2, String::from("// @has /test2 'test2'")),
+            ]
+        );
+
+        let tests = super::join_line_continuations("// @has /multiline \\\n// 'test'");
+        assert_eq!(tests, vec![(1, String::from("// @has /multiline 'test'"))]);
     }
 
     #[test]
