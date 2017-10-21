@@ -19,7 +19,6 @@ static DEFAULT_ARTIFACTS: &[&str] = &["frontend"];
 fn run() -> rustdoc::error::Result<()> {
     let version = env!("CARGO_PKG_VERSION");
 
-    let joined_artifacts = DEFAULT_ARTIFACTS.join(",");
     let matches = App::new("rustdoc")
         .version(version)
         .author("Steve Klabnik <steve@steveklabnik.com>")
@@ -46,7 +45,6 @@ fn run() -> rustdoc::error::Result<()> {
                         .use_delimiter(true)
                         .takes_value(true)
                         .possible_values(ALL_ARTIFACTS)
-                        .default_value(&joined_artifacts)
                         .help("Build artifacts to produce. Defaults to just the frontend."),
                 )
                 .arg(Arg::with_name("open").short("o").long("open").help(
@@ -74,7 +72,13 @@ fn run() -> rustdoc::error::Result<()> {
 
     match matches.subcommand() {
         ("build", Some(matches)) => {
-            let artifacts: Vec<&str> = matches.values_of("artifacts").unwrap().collect();
+            // FIXME: Workaround for clap #1056. Use `.default_value()` once the issue is fixed.
+            let artifacts: Vec<&str> = matches
+                .values_of("artifacts")
+                .map(|values| values.collect())
+                .unwrap_or_else(|| {
+                    DEFAULT_ARTIFACTS.iter().map(|&artifact| artifact).collect()
+                });
             build(&config, &artifacts)?;
             if matches.is_present("open") {
                 config.open_docs()?;
