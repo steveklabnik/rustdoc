@@ -8,9 +8,9 @@
 // @has /included/0/attributes/name 'StructWithFields'
 // @has /included/0/attributes/docs ''
 
-// @has /included/0/relationships/child_fields/data/0/type 'field'
+// @has /included/0/relationships/fields/data/0/type 'field'
 
-// @has /included/0/relationships/child_fields/data/0/id 'fields::StructWithFields::integer'
+// @has /included/0/relationships/fields/data/0/id 'fields::StructWithFields::integer'
 
 // @has /included/1/type 'field'
 // @has /included/1/id 'fields::StructWithFields::integer'

@@ -19,8 +19,8 @@ pub struct UnitStruct;
 // @has /included/1/attributes/name 'ContainerStruct'
 // @has /included/1/attributes/docs 'A struct that contains another struct.'
 
-// @has /included/1/relationships/child_fields/data/0/type 'field'
-// @has /included/1/relationships/child_fields/data/0/id 'structs::ContainerStruct::inner_struct'
+// @has /included/1/relationships/fields/data/0/type 'field'
+// @has /included/1/relationships/fields/data/0/id 'structs::ContainerStruct::inner_struct'
 
 /// A struct that contains another struct.
 /// Docs for the ContainerStruct.

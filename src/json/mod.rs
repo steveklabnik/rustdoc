@@ -127,15 +127,15 @@ pub fn create_documentation(host: &AnalysisHost, crate_name: &str) -> Result<Doc
         for id in child_ids {
             let def = host.get_def(id).unwrap();
             let (ty, child_ty) = match def.kind {
-                DefKind::Mod => (String::from("module"), String::from("child_modules")),
-                DefKind::Struct => (String::from("struct"), String::from("child_structs")),
-                DefKind::Enum => (String::from("enum"), String::from("child_enums")),
-                DefKind::Trait => (String::from("trait"), String::from("child_traits")),
-                DefKind::Function => (String::from("function"), String::from("child_functions")),
-                DefKind::Type => (String::from("type"), String::from("child_types")),
-                DefKind::Static => (String::from("static"), String::from("child_statics")),
-                DefKind::Const => (String::from("const"), String::from("child_consts")),
-                DefKind::Field => (String::from("field"), String::from("child_fields")),
+                DefKind::Mod => (String::from("module"), String::from("modules")),
+                DefKind::Struct => (String::from("struct"), String::from("structs")),
+                DefKind::Enum => (String::from("enum"), String::from("enums")),
+                DefKind::Trait => (String::from("trait"), String::from("traits")),
+                DefKind::Function => (String::from("function"), String::from("functions")),
+                DefKind::Type => (String::from("type"), String::from("types")),
+                DefKind::Static => (String::from("static"), String::from("statics")),
+                DefKind::Const => (String::from("const"), String::from("consts")),
+                DefKind::Field => (String::from("field"), String::from("fields")),
                 DefKind::Tuple => continue,
                 DefKind::Local => continue,
                 // The below DefKinds are not supported in rls-analysis
