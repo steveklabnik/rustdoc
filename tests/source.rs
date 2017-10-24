@@ -32,6 +32,7 @@ extern crate lazy_static;
 #[macro_use]
 extern crate serde_json;
 
+extern crate itertools;
 extern crate regex;
 extern crate rls_analysis as analysis;
 extern crate rls_data as analysis_data;
@@ -47,6 +48,8 @@ use std::process::Command;
 
 use analysis::{AnalysisHost, Target};
 use analysis_data::config::Config as AnalysisConfig;
+use itertools::Itertools;
+use itertools::EitherOrBoth::{Both, Left, Right};
 use regex::Regex;
 use serde_json::Value;
 
@@ -219,11 +222,19 @@ fn join_line_continuations(contents: &str) -> Vec<(usize, String)> {
     for (line_number, line) in lines {
         let line_number = line_number + 1;
         let mut line = if let Some(ref last_line) = last_line {
+
             // Strip the common prefix from the last line.
             line.chars()
-                .zip(last_line.chars())
-                .skip_while(|&(a, b)| a == b)
-                .map(|char_pair| char_pair.0)
+                .zip_longest(last_line.chars())
+                .skip_while(|pair| match *pair {
+                    Both(a, b) => a == b,
+                    _ => false,
+                })
+                .flat_map(|pair| match pair {
+                    Left(c) => Some(c),
+                    Both(c, _) => Some(c),
+                    Right(_) => None,
+                })
                 .collect()
         } else {
             String::from(line)
@@ -371,6 +382,12 @@ mod tests {
 
         let tests = super::join_line_continuations("// @has /multiline \\\n// 'test'");
         assert_eq!(tests, vec![(1, String::from("// @has /multiline 'test'"))]);
+
+        let tests = super::join_line_continuations("// @has /short \\\n//    'longer next line'");
+        assert_eq!(
+            tests,
+            vec![(1, String::from("// @has /short    'longer next line'"))]
+        );
     }
 
     #[test]
