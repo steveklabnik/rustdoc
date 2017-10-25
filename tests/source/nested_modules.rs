@@ -1,12 +1,19 @@
 #![crate_type = "lib"]
 
-// @has included[0].relationships.modules.data[0].type 'module'
-// @has included[0].relationships.modules.data[0].id 'nested_modules::example_module::nested'
+// @has "included[?id=='nested_modules::example_module'] \
+//          .relationships.modules.data[].type | [0]" \
+//      "module"
+// @has "included[?id=='nested_modules::example_module'] \
+//          .relationships.modules.data[].id | [0]" \
+//      "nested_modules::example_module::nested"
 pub mod example_module {
 
-    // @has included[1].relationships.modules.data[0].type 'module'
-    // @has included[1].relationships.modules.data[0].id \
-    //      'nested_modules::example_module::nested::nested2'
+    // @has "included[?id=='nested_modules::example_module::nested'] \
+    //          .relationships.modules.data[].type | [0]" \
+    //      "module"
+    // @has "included[?id=='nested_modules::example_module::nested'] \
+    //          .relationships.modules.data[].id | [0]" \
+    //      "nested_modules::example_module::nested::nested2"
     pub mod nested {
         pub mod nested2 {}
     }

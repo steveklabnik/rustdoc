@@ -13,6 +13,7 @@ extern crate serde_json;
 
 extern crate itertools;
 extern crate jmespath;
+extern crate rand;
 extern crate regex;
 extern crate rls_analysis as analysis;
 extern crate rls_data as analysis_data;
@@ -31,6 +32,7 @@ use analysis_data::config::Config as AnalysisConfig;
 use itertools::EitherOrBoth::{Both, Left, Right};
 use itertools::Itertools;
 use jmespath::{ToJmespath, Variable};
+use rand::Rng;
 use regex::Regex;
 use serde::Deserialize;
 use serde_json::Value;
@@ -241,7 +243,23 @@ fn check(source_file: &Path, host: &AnalysisHost) -> Result<()> {
         .and_then(|stem| stem.to_str())
         .ok_or_else(|| "Invalid source file stem")?;
     let data = rustdoc::create_documentation(host, package_name)?;
-    let json = serde_json::to_value(&data)?;
+    let mut json = serde_json::to_value(&data)?;
+
+    // Shuffle any arrays found in the documentation to ensure that the tests don't depend on their
+    // order.
+    fn shuffle_arrays(json: &mut Value) {
+        match *json {
+            Value::Array(ref mut values) => rand::thread_rng().shuffle(values),
+            Value::Object(ref mut map) => {
+                for (_, ref mut value) in map.iter_mut() {
+                    shuffle_arrays(value);
+                }
+            }
+            _ => (),
+        }
+    }
+
+    shuffle_arrays(&mut json);
 
     let mut source = String::new();
     File::open(source_file)?.read_to_string(&mut source)?;

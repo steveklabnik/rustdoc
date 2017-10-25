@@ -1,26 +1,22 @@
 #![crate_type = "lib"]
 
-// @has data.relationships.structs.data[0].type 'struct'
-// @has data.relationships.structs.data[0].id 'structs::UnitStruct'
-
-// @has included[0].type 'struct'
-// @has included[0].id 'structs::UnitStruct'
-// @has included[0].attributes.name 'UnitStruct'
-// @has included[0].attributes.docs 'A unit struct.'
+// @has "data.relationships.structs.data[?id=='structs::UnitStruct'].type | [0]" "struct"
+// @has "included[?id=='structs::UnitStruct'].type | [0]" "struct"
+// @has "included[?id=='structs::UnitStruct'].attributes.name | [0]" "UnitStruct"
+// @has "included[?id=='structs::UnitStruct'].attributes.docs | [0]" "A unit struct."
 
 /// A unit struct.
 pub struct UnitStruct;
 
-// @has data.relationships.structs.data[1].type 'struct'
-// @has data.relationships.structs.data[1].id 'structs::ContainerStruct'
+// @has "data.relationships.structs.data[?id=='structs::ContainerStruct'].type | [0]" "struct"
+// @has "included[?id=='structs::ContainerStruct'].type | [0]" "struct"
+// @has "included[?id=='structs::ContainerStruct'].attributes.name | [0]" "ContainerStruct"
+// @has "included[?id=='structs::ContainerStruct'].attributes.docs | [0]" \
+//      "A struct that contains another struct"
 
-// @has included[1].type 'struct'
-// @has included[1].id 'structs::ContainerStruct'
-// @has included[1].attributes.name 'ContainerStruct'
-// @has included[1].attributes.docs 'A struct that contains another struct.'
-
-// @has included[1].relationships.fields.data[0].type 'field'
-// @has included[1].relationships.fields.data[0].id 'structs::ContainerStruct::inner_struct'
+// @has "included[?id=='structs::ContainerStruct'].relationships.fields.data[] \
+//         | [?id=='structs::ContainerStruct::inner_struct'].type | [0]" \
+//      "field"
 
 /// A struct that contains another struct.
 /// Docs for the ContainerStruct.

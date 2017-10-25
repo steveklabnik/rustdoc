@@ -1,21 +1,18 @@
 #![crate_type = "lib"]
 
-// @has data.relationships.structs.data[0].type 'struct'
-// @has data.relationships.structs.data[0].id 'fields::StructWithFields'
+// @has "data.relationships.structs.data[?id=='fields::StructWithFields'].type | [0]" "struct"
 
-// @has included[0].type 'struct'
-// @has included[0].id 'fields::StructWithFields'
-// @has included[0].attributes.name 'StructWithFields'
-// @has included[0].attributes.docs ''
+// @has "included[?id=='fields::StructWithFields'].type | [0]" "struct"
+// @has "included[?id=='fields::StructWithFields'].attributes.name | [0]" "StructWithFields"
+// @has "included[?id=='fields::StructWithFields'].attributes.docs| [0]" ""
+// @has "included[?id=='fields::StructWithFields'].relationships.fields.data[] \
+//         | [?id=='fields::StructWithFields::integer'].type | [0]"  \
+//      "field"
 
-// @has included[0].relationships.fields.data[0].type 'field'
-
-// @has included[0].relationships.fields.data[0].id 'fields::StructWithFields::integer'
-
-// @has included[1].type 'field'
-// @has included[1].id 'fields::StructWithFields::integer'
-// @has included[1].attributes.name 'integer'
-// @has included[1].attributes.docs 'These are integer field docs.'
+// @has "included[?id=='fields::StructWithFields::integer'].type | [0]" "field"
+// @has "included[?id=='fields::StructWithFields::integer'].attributes.name | [0]" "integer"
+// @has "included[?id=='fields::StructWithFields::integer'].attributes.docs | [0]" \
+//      "These are integer field docs."
 
 pub struct StructWithFields {
     /// These are integer field docs.
