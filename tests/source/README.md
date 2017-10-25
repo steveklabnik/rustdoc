@@ -28,6 +28,22 @@ The test will fail if any of the following conditions are met:
 - The regular expression does not match the JMESPath query result and the test
   is not negated.
 
+### `@matches`
+
+```rust
+// @matches <JMESPath> <JSON>
+```
+
+The `@matches` directive requires that the result of the JMESPath query executed
+on `rustdoc`'s JSON output equals the JSON on the right. This can be used to
+form more complex queries than `@has`.
+
+The test will fail if any of the following conditions are met:
+
+- The JMESPath or JSON syntax is invalid.
+- The JMESPath query result does not match the JSON value and the test is not
+  negated.
+
 ### Additional Notes
 
 Arguments are quoted according to shell rules. Arguments containing spaces must

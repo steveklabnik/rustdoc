@@ -30,7 +30,7 @@ use analysis::{AnalysisHost, Target};
 use analysis_data::config::Config as AnalysisConfig;
 use itertools::EitherOrBoth::{Both, Left, Right};
 use itertools::Itertools;
-use jmespath::Variable;
+use jmespath::{ToJmespath, Variable};
 use regex::Regex;
 use serde::Deserialize;
 use serde_json::Value;
@@ -56,18 +56,18 @@ error_chain! {
             description("JMESPath query matched no data")
             display("JMESPath query '{}' matched no data", p)
         }
-        ValueMismatch(value: String, re: String) {
-            description("The value did not match the regular expression")
-            display("The value '{}' did not match the regular expression '{}'", value, re)
+        TypeError(expected: String, value: Value) {
+            description("The JMESPath query returned an unexpected type")
+            display("The JMESPath query returned an unexpected type: expected {}, got {}",
+                    expected, value)
         }
-        ValueType(value: Value) {
-            description("The JMESPath query did not return a string")
-            display("The JMESPath query did not return a string: {:?}", value)
+        TestFailure(msg: String) {
+            description("The test failed")
+            display("The test failed: {}", msg)
         }
-        UnexpectedPass(value: String, re: String) {
-            description("The value matched the regular expression, but it shouldn't")
-            display("The value '{}' matched the regular expression '{}' but it shouldn't",
-                    value, re)
+        UnexpectedPass(msg: String) {
+            description("The test passed, but it shouldn't")
+            display("The test passed, but it shouldn't: {}", msg)
         }
     }
 }
@@ -116,34 +116,49 @@ impl TestCase {
                         if self.negated {
                             return Ok(());
                         } else {
-                            bail!(ErrorKind::NullMatch(self.jmespath.as_str().into()))
-
+                            bail!(ErrorKind::NullMatch(self.jmespath.as_str().into()));
                         }
                     }
                     ref value => {
-                        bail!(ErrorKind::ValueType(
-                            Value::deserialize(value.clone()).expect(
-                                "could not deserialize JMESPath variable",
-                            ),
-                        ))
+                        let value = Value::deserialize(value.clone()).expect(
+                            "could not deserialize JMESPath variable",
+                        );
+
+                        bail!(ErrorKind::TypeError("string".into(), value));
                     }
                 };
 
                 if re.is_match(&value) && self.negated {
-                    bail!(ErrorKind::UnexpectedPass(
-                        value.to_owned(),
-                        re.as_str().to_owned(),
-                    ));
+                    let message = format!("`{}` matched the regex `{}`", value, re.as_str());
+                    bail!(ErrorKind::UnexpectedPass(message));
                 } else if !re.is_match(&value) && !self.negated {
-                    bail!(ErrorKind::ValueMismatch(
-                        value.to_owned(),
-                        re.as_str().to_owned(),
-                    ));
+                    let message = format!("`{}` did not match the regex `{}`", value, re.as_str());
+                    bail!(ErrorKind::TestFailure(message));
                 } else {
                     Ok(())
                 }
             }
-            _ => unimplemented!(),
+            Directive::Matches(ref json) => {
+                let json = json.to_jmespath();
+
+                if expression == json && self.negated {
+                    let message = format!(
+                        "The JMESPath query result `{}` matched the JSON `{}`, but it shouldn't",
+                        expression,
+                        json
+                    );
+                    bail!(ErrorKind::UnexpectedPass(message));
+                } else if expression != json && !self.negated {
+                    let message = format!(
+                        "query result `{}` does not equal JSON `{}`",
+                        expression,
+                        json
+                    );
+                    bail!(ErrorKind::TestFailure(message));
+                } else {
+                    Ok(())
+                }
+            }
         }
     }
 }
@@ -349,26 +364,33 @@ fn parse_directive(directive: &str, args: &str, negated: bool) -> Result<TestCas
         || "invalid JMESPath syntax",
     )?;
 
-    let test = match directive {
+    let directive = match directive {
         "has" => {
-            if args.len() != 2 {
-                bail!("Not enough arguments");
-            }
+            ensure!(args.len() == 2, "Not enough arguments");
 
             let regex = Regex::new(&args[1]).chain_err(|| "invalid regex syntax")?;
 
-            TestCase {
-                jmespath,
-                negated,
-                directive: Directive::Has(regex),
-            }
+            Directive::Has(regex)
+        }
+        "matches" => {
+            ensure!(args.len() == 2, "not enough arguments");
+
+            let value = serde_json::from_str(&args[1]).chain_err(
+                || "invalid JSON syntax",
+            )?;
+
+            Directive::Matches(value)
         }
         _ => {
             bail!("Unknown directive");
         }
     };
 
-    Ok(test)
+    Ok(TestCase {
+        jmespath,
+        negated,
+        directive,
+    })
 }
 
 /// Tests generated from the files in tests/source
@@ -416,6 +438,8 @@ mod tests {
 
     #[test]
     fn parse_test() {
+        assert!(super::parse_test(r#"fn main() { println!("no test case"); }"#).is_none());
+
         let test = super::parse_test("// @has test 'value'").unwrap().unwrap();
         assert_eq!(
             test,
@@ -448,7 +472,17 @@ mod tests {
             }
         );
 
-        assert!(super::parse_test(r#"fn main() { println!("no test case"); }"#).is_none());
+        let test = super::parse_test(r#"// @matches some '{ "json": "value" }'"#)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            test,
+            TestCase {
+                jmespath: jmespath::compile("some").unwrap(),
+                negated: false,
+                directive: Directive::Matches(json!({ "json": "value" })),
+            }
+        );
 
         let err = super::parse_test("// @has /test '['").unwrap().unwrap_err();
         assert_err!(err, ErrorKind::InvalidDirective);
@@ -493,6 +527,13 @@ mod tests {
         test.run(&json).unwrap();
 
         let test = TestCase {
+            jmespath: jmespath::compile("nonString").unwrap(),
+            directive: Directive::Matches(json!(["non", "string"])),
+            negated: false,
+        };
+        test.run(&json).unwrap();
+
+        let test = TestCase {
             jmespath: jmespath::compile("test").unwrap(),
             directive: Directive::Has(Regex::new("value").unwrap()),
             negated: true,
@@ -504,7 +545,7 @@ mod tests {
             directive: Directive::Has(Regex::new("wrong value").unwrap()),
             negated: false,
         };
-        assert_err!(test.run(&json).unwrap_err(), ErrorKind::ValueMismatch);
+        assert_err!(test.run(&json).unwrap_err(), ErrorKind::TestFailure);
 
         let test = TestCase {
             jmespath: jmespath::compile("nonexistent").unwrap(),
@@ -518,6 +559,6 @@ mod tests {
             directive: Directive::Has(Regex::new("value").unwrap()),
             negated: false,
         };
-        assert_err!(test.run(&json).unwrap_err(), ErrorKind::ValueType);
+        assert_err!(test.run(&json).unwrap_err(), ErrorKind::TypeError);
     }
 }
