@@ -72,12 +72,80 @@ error_chain! {
     }
 }
 
-// If more directives are added, this could be converted into an enum.
 #[derive(Debug)]
+enum Directive {
+    /// The query result is a string and matches a regex.
+    Has(Regex),
+
+    /// The query result is a JSON value that equals another JSON value.
+    Matches(Value),
+}
+
+impl PartialEq for Directive {
+    fn eq(&self, other: &Self) -> bool {
+        use Directive::*;
+
+        match (self, other) {
+            (&Has(ref re), &Has(ref other_re)) => re.as_str() == other_re.as_str(),
+            (&Matches(ref val), &Matches(ref other_val)) => val == other_val,
+            _ => false,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 struct TestCase {
     jmespath: jmespath::Expression<'static>,
-    regex: Regex,
     negated: bool,
+    directive: Directive,
+}
+
+impl TestCase {
+    /// Runs the test case. Returns `Ok(())` if the test passes, otherwise returns the reason the
+    /// test failed.
+    fn run(&self, json: &serde_json::Value) -> Result<()> {
+        let expression = self.jmespath.search(json).chain_err(
+            || "could not evaluate JMESPath",
+        )?;
+
+        match self.directive {
+            Directive::Has(ref re) => {
+                let value = match *expression {
+                    Variable::String(ref value) => value,
+                    Variable::Null => {
+                        if self.negated {
+                            return Ok(());
+                        } else {
+                            bail!(ErrorKind::NullMatch(self.jmespath.as_str().into()))
+
+                        }
+                    }
+                    ref value => {
+                        bail!(ErrorKind::ValueType(
+                            Value::deserialize(value.clone()).expect(
+                                "could not deserialize JMESPath variable",
+                            ),
+                        ))
+                    }
+                };
+
+                if re.is_match(&value) && self.negated {
+                    bail!(ErrorKind::UnexpectedPass(
+                        value.to_owned(),
+                        re.as_str().to_owned(),
+                    ));
+                } else if !re.is_match(&value) && !self.negated {
+                    bail!(ErrorKind::ValueMismatch(
+                        value.to_owned(),
+                        re.as_str().to_owned(),
+                    ));
+                } else {
+                    Ok(())
+                }
+            }
+            _ => unimplemented!(),
+        }
+    }
 }
 
 /// Create analysis data from a given source file. Returns an analysis host with the data loaded.
@@ -165,9 +233,14 @@ fn check(source_file: &Path, host: &AnalysisHost) -> Result<()> {
     let mut found_test = false;
     for (original_line_number, line) in join_line_continuations(&source) {
         if let Some(test_case) = parse_test(&line) {
-            run_test(&json, test_case?).chain_err(|| {
+            let test_case = test_case.chain_err(|| {
+                format!("could not parse test on line {}", original_line_number)
+            })?;
+
+            test_case.run(&json).chain_err(|| {
                 format!("test failed on line {}", original_line_number)
             })?;
+
             if !found_test {
                 found_test = true;
             }
@@ -272,68 +345,30 @@ fn parse_directive(directive: &str, args: &str, negated: bool) -> Result<TestCas
         None => bail!("Could not split directive arguments"),
     };
 
-    match directive {
+    let jmespath = jmespath::compile(&args[0]).chain_err(
+        || "invalid JMESPath syntax",
+    )?;
+
+    let test = match directive {
         "has" => {
             if args.len() != 2 {
                 bail!("Not enough arguments");
             }
 
-            let jmespath = jmespath::compile(&args[0]).chain_err(
-                || "invalid JMESPath syntax",
-            )?;
             let regex = Regex::new(&args[1]).chain_err(|| "invalid regex syntax")?;
 
-            Ok(TestCase {
+            TestCase {
                 jmespath,
-                regex,
                 negated,
-            })
+                directive: Directive::Has(regex),
+            }
         }
         _ => {
             bail!("Unknown directive");
         }
-    }
-}
-
-/// Runs a test case. Returns `Ok(())` if the test passes, otherwise returns the reason the test
-/// failed.
-fn run_test(json: &serde_json::Value, case: TestCase) -> Result<()> {
-    let expression = case.jmespath.search(json).chain_err(
-        || "could not evaluate JMESPath",
-    )?;
-
-    let value = match *expression {
-        Variable::String(ref value) => value,
-        Variable::Null => {
-            if case.negated {
-                return Ok(());
-            } else {
-                bail!(ErrorKind::NullMatch(case.jmespath.as_str().into()))
-
-            }
-        }
-        ref value => {
-            bail!(ErrorKind::ValueType(
-                Value::deserialize(value.clone()).expect(
-                    "could not deserialize JMESPath variable",
-                ),
-            ))
-        }
     };
 
-    if case.regex.is_match(&value) && case.negated {
-        bail!(ErrorKind::UnexpectedPass(
-            value.to_owned(),
-            case.regex.as_str().to_owned(),
-        ));
-    } else if !case.regex.is_match(&value) && !case.negated {
-        bail!(ErrorKind::ValueMismatch(
-            value.to_owned(),
-            case.regex.as_str().to_owned(),
-        ));
-    } else {
-        Ok(())
-    }
+    Ok(test)
 }
 
 /// Tests generated from the files in tests/source
@@ -382,21 +417,36 @@ mod tests {
     #[test]
     fn parse_test() {
         let test = super::parse_test("// @has test 'value'").unwrap().unwrap();
-        assert_eq!(test.jmespath.as_str(), "test");
-        assert_eq!(test.regex.as_str(), "value");
-        assert!(!test.negated);
+        assert_eq!(
+            test,
+            TestCase {
+                jmespath: jmespath::compile("test").unwrap(),
+                negated: false,
+                directive: Directive::Has(Regex::new("value").unwrap()),
+            }
+        );
 
         let test = super::parse_test("// @has included[0].attributes 'a module'")
             .unwrap()
             .unwrap();
-        assert_eq!(test.jmespath.as_str(), "included[0].attributes");
-        assert_eq!(test.regex.as_str(), "a module");
-        assert!(!test.negated);
+        assert_eq!(
+            test,
+            TestCase {
+                jmespath: jmespath::compile("included[0].attributes").unwrap(),
+                negated: false,
+                directive: Directive::Has(Regex::new("a module").unwrap()),
+            }
+        );
 
         let test = super::parse_test("// @!has some 'value'").unwrap().unwrap();
-        assert_eq!(test.jmespath.as_str(), "some");
-        assert_eq!(test.regex.as_str(), "value");
-        assert!(test.negated);
+        assert_eq!(
+            test,
+            TestCase {
+                jmespath: jmespath::compile("some").unwrap(),
+                negated: true,
+                directive: Directive::Has(Regex::new("value").unwrap()),
+            }
+        );
 
         assert!(super::parse_test(r#"fn main() { println!("no test case"); }"#).is_none());
 
@@ -421,71 +471,53 @@ mod tests {
             "nonString": ["non", "string"],
         });
 
-        super::run_test(
-            &json,
-            TestCase {
-                jmespath: jmespath::compile("test").unwrap(),
-                regex: Regex::new("value").unwrap(),
-                negated: false,
-            },
-        ).unwrap();
+        let test = TestCase {
+            jmespath: jmespath::compile("test").unwrap(),
+            directive: Directive::Has(Regex::new("value").unwrap()),
+            negated: false,
+        };
+        test.run(&json).unwrap();
 
-        super::run_test(
-            &json,
-            TestCase {
-                jmespath: jmespath::compile("test").unwrap(),
-                regex: Regex::new("nonexistent").unwrap(),
-                negated: true,
-            },
-        ).unwrap();
+        let test = TestCase {
+            jmespath: jmespath::compile("test").unwrap(),
+            directive: Directive::Has(Regex::new("nonexistent").unwrap()),
+            negated: true,
+        };
+        test.run(&json).unwrap();
 
-        super::run_test(
-            &json,
-            TestCase {
-                jmespath: jmespath::compile("nonexistent").unwrap(),
-                regex: Regex::new("value").unwrap(),
-                negated: true,
-            },
-        ).unwrap();
+        let test = TestCase {
+            jmespath: jmespath::compile("nonexistent").unwrap(),
+            directive: Directive::Has(Regex::new("value").unwrap()),
+            negated: true,
+        };
+        test.run(&json).unwrap();
 
-        let err = super::run_test(
-            &json,
-            TestCase {
-                jmespath: jmespath::compile("test").unwrap(),
-                regex: Regex::new("value").unwrap(),
-                negated: true,
-            },
-        ).unwrap_err();
-        assert_err!(err, ErrorKind::UnexpectedPass);
+        let test = TestCase {
+            jmespath: jmespath::compile("test").unwrap(),
+            directive: Directive::Has(Regex::new("value").unwrap()),
+            negated: true,
+        };
+        assert_err!(test.run(&json).unwrap_err(), ErrorKind::UnexpectedPass);
 
-        let err = super::run_test(
-            &json,
-            TestCase {
-                jmespath: jmespath::compile("test").unwrap(),
-                regex: Regex::new("wrong value").unwrap(),
-                negated: false,
-            },
-        ).unwrap_err();
-        assert_err!(err, ErrorKind::ValueMismatch);
+        let test = TestCase {
+            jmespath: jmespath::compile("test").unwrap(),
+            directive: Directive::Has(Regex::new("wrong value").unwrap()),
+            negated: false,
+        };
+        assert_err!(test.run(&json).unwrap_err(), ErrorKind::ValueMismatch);
 
-        let err = super::run_test(
-            &json,
-            TestCase {
-                jmespath: jmespath::compile("nonexistent").unwrap(),
-                regex: Regex::new("value").unwrap(),
-                negated: false,
-            },
-        ).unwrap_err();
-        assert_err!(err, ErrorKind::NullMatch);
+        let test = TestCase {
+            jmespath: jmespath::compile("nonexistent").unwrap(),
+            directive: Directive::Has(Regex::new("value").unwrap()),
+            negated: false,
+        };
+        assert_err!(test.run(&json).unwrap_err(), ErrorKind::NullMatch);
 
-        let err = super::run_test(
-            &json,
-            TestCase {
-                jmespath: jmespath::compile("nonString").unwrap(),
-                regex: Regex::new("value").unwrap(),
-                negated: false,
-            },
-        ).unwrap_err();
-        assert_err!(err, ErrorKind::ValueType);
+        let test = TestCase {
+            jmespath: jmespath::compile("nonString").unwrap(),
+            directive: Directive::Has(Regex::new("value").unwrap()),
+            negated: false,
+        };
+        assert_err!(test.run(&json).unwrap_err(), ErrorKind::ValueType);
     }
 }
