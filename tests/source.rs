@@ -81,6 +81,9 @@ enum Directive {
 
     /// The query result is a JSON value that equals another JSON value.
     Matches(Value),
+
+    /// The query result evaluates to `true`.
+    Assert,
 }
 
 impl PartialEq for Directive {
@@ -90,6 +93,7 @@ impl PartialEq for Directive {
         match (self, other) {
             (&Has(ref re), &Has(ref other_re)) => re.as_str() == other_re.as_str(),
             (&Matches(ref val), &Matches(ref other_val)) => val == other_val,
+            (&Assert, &Assert) => true,
             _ => false,
         }
     }
@@ -159,6 +163,28 @@ impl TestCase {
                     bail!(ErrorKind::TestFailure(message));
                 } else {
                     Ok(())
+                }
+            }
+            Directive::Assert => {
+                match *expression {
+                    Variable::Bool(b) => {
+                        if b && self.negated {
+                            bail!(ErrorKind::UnexpectedPass(
+                                "query evaulated to true, expected false".into(),
+                            ));
+                        } else if !b && !self.negated {
+                            bail!(ErrorKind::TestFailure("query evaluated to false".into()));
+                        } else {
+                            Ok(())
+                        }
+                    }
+                    ref value => {
+                        let value = Value::deserialize(value.clone()).expect(
+                            "could not deserialize JMESPath variable",
+                        );
+
+                        bail!(ErrorKind::TypeError("boolean".into(), value));
+                    }
                 }
             }
         }
@@ -399,6 +425,11 @@ fn parse_directive(directive: &str, args: &str, negated: bool) -> Result<TestCas
 
             Directive::Matches(value)
         }
+        "assert" => {
+            ensure!(args.len() == 1, "expected 1 argument");
+
+            Directive::Assert
+        }
         _ => {
             bail!("Unknown directive");
         }
@@ -502,6 +533,18 @@ mod tests {
             }
         );
 
+        let test = super::parse_test(r#"// @assert "some.path | contains(@, 'value')""#)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            test,
+            TestCase {
+                jmespath: jmespath::compile("some.path | contains(@, 'value')").unwrap(),
+                negated: false,
+                directive: Directive::Assert,
+            }
+        );
+
         let err = super::parse_test("// @has /test '['").unwrap().unwrap_err();
         assert_err!(err, ErrorKind::InvalidDirective);
 
@@ -521,6 +564,7 @@ mod tests {
         let json = json!({
             "test": "value",
             "nonString": ["non", "string"],
+            "boolean": true,
         });
 
         let test = TestCase {
@@ -547,6 +591,13 @@ mod tests {
         let test = TestCase {
             jmespath: jmespath::compile("nonString").unwrap(),
             directive: Directive::Matches(json!(["non", "string"])),
+            negated: false,
+        };
+        test.run(&json).unwrap();
+
+        let test = TestCase {
+            jmespath: jmespath::compile("boolean").unwrap(),
+            directive: Directive::Assert,
             negated: false,
         };
         test.run(&json).unwrap();

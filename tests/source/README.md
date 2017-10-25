@@ -44,6 +44,20 @@ The test will fail if any of the following conditions are met:
 - The JMESPath query result does not match the JSON value and the test is not
   negated.
 
+### `@assert`
+
+```rust
+// @assert <JMESPath>
+```
+
+`@assert` is a shorthand for matching `true`.
+
+The test will fail if any of the following conditions are met:
+
+- The JMESPath syntax is invalid.
+- The JMESPath does not evaluate to a boolean.
+- The JMESPath evaluates to `false` and the test is not negated.
+
 ### Additional Notes
 
 Arguments are quoted according to shell rules. Arguments containing spaces must
