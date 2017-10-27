@@ -7,6 +7,7 @@
 // @has included[0].id 'modules::module'
 // @has included[0].attributes.name 'module'
 // @has included[0].attributes.docs 'A module.'
+// @has included[0].attributes.summary 'A module.'
 
 /// A module.
 pub mod module {}
