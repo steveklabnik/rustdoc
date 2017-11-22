@@ -436,7 +436,7 @@ fn parse_directive(directive: &str, args: &str, negated: bool) -> Result<TestCas
 
     let directive = match directive {
         "has" => {
-            if args.len() == 2 {
+            if args.len() != 2 {
                 return Err(failure::err_msg("Not enough arguments").into());
             }
 
@@ -447,7 +447,7 @@ fn parse_directive(directive: &str, args: &str, negated: bool) -> Result<TestCas
             Directive::Has(regex)
         }
         "matches" => {
-            if args.len() == 2 {
+            if args.len() != 2 {
                 return Err(failure::err_msg("Not enough arguments").into());
             }
 
@@ -458,7 +458,7 @@ fn parse_directive(directive: &str, args: &str, negated: bool) -> Result<TestCas
             Directive::Matches(value)
         }
         "assert" => {
-            if args.len() == 1 {
+            if args.len() != 1 {
                 return Err(failure::err_msg("expected 1 argument").into());
             }
 
