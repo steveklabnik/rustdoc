@@ -10,8 +10,10 @@ use serde_json;
 
 use Config;
 use Verbosity;
-use error::*;
+use error;
+use failure;
 use ui::Ui;
+use Result;
 
 /// The kinds of targets that we can document.
 #[derive(Debug, PartialEq, Eq)]
@@ -64,10 +66,10 @@ pub fn retrieve_metadata(manifest_path: &Path) -> Result<serde_json::Value> {
 
     if !output.status.success() {
         return Err(
-            ErrorKind::Cargo(
-                output.status,
-                String::from_utf8_lossy(&output.stderr).into_owned(),
-            ).into(),
+            error::Cargo {
+                status: output.status,
+                stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+            }.into(),
         );
     }
 
@@ -90,7 +92,9 @@ where
     let target_dir = config
         .manifest_path
         .parent()
-        .ok_or("Expected manifest_path to point to Cargo.toml")?
+        .ok_or(failure::err_msg(
+            "Expected manifest_path to point to Cargo.toml",
+        ))?
         .join("target/rls");
 
     let analysis_config = AnalysisConfig {
@@ -159,7 +163,7 @@ where
     let status = child.wait()?;
 
     if !status.success() {
-        bail!(ErrorKind::Cargo(status, stderr));
+        return Err(error::Cargo { status, stderr }.into());
     }
 
     Ok(())
@@ -185,9 +189,9 @@ pub fn target_from_metadata(ui: &Ui, metadata: &serde_json::Value) -> Result<Tar
 
             if kinds.len() != 1 {
                 return Some(Err(
-                    ErrorKind::Json(
-                        format!("expected one kind for target '{}'", name),
-                    ).into(),
+                    error::Json {
+                        location: format!("expected one kind for target '{}'", name),
+                    }.into(),
                 ));
             }
 
@@ -207,10 +211,9 @@ pub fn target_from_metadata(ui: &Ui, metadata: &serde_json::Value) -> Result<Tar
         .collect::<Result<Vec<_>>>()?;
 
     if targets.is_empty() {
-        bail!(ErrorKind::Json(
-            "no targets with supported kinds (`bin`, `lib`) found"
-                .into(),
-        ));
+        return Err(
+            failure::err_msg("no targets with supported kinds (`bin`, `lib`) found").into(),
+        );
     } else if targets.len() == 1 {
         Ok(targets.remove(0))
     } else {

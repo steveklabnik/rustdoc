@@ -55,13 +55,9 @@ fn run() -> io::Result<()> {
                 if let Err(err) = ::check(&source_file, &host) {
                     println!("error: {}", err);
 
-                    for err in err.iter().skip(1) {
-                        println!("caused by: {}", err);
-                    }
+                    println!("caused by: {}", err.cause());
 
-                    if let Some(backtrace) = err.backtrace() {
-                        println!("backtrace: {:?}", backtrace);
-                    }
+                    println!("backtrace, if any: {:?}", err.backtrace());
 
                     panic!();
                 }
