@@ -1,27 +1,6 @@
 //! Source-based integration tests.
 //!
-//! This file contains a test that will run `rustdoc` on every file in the `tests/source`
-//! directory, and compare the JSON output with comments in the source that indicate the expected
-//! output.
-//!
-//! Supported syntax:
-//!
-//! ```ignore
-//! // @has <JSON pointer> '<Regular expression>'
-//! ```
-//!
-//! Long tests may span multiple lines by ending the line with a `\`.
-//!
-//! ```ignore
-//! // @has /a/very/long/json/pointer \
-//! //     'a very long line of documentation'
-//! ```
-//!
-//! This comment requires that the JSON output from `rustdoc` contains a string that matches the
-//! regular expression at the value pointed at by the JSON pointer. See [RFC6901] for JSON pointer
-//! syntax.
-//!
-//! [RFC6901]: https://tools.ietf.org/html/rfc6901
+//! See the [source test README](source/README.md) for more information.
 
 extern crate rustdoc;
 
@@ -33,6 +12,8 @@ extern crate lazy_static;
 extern crate serde_json;
 
 extern crate itertools;
+extern crate jmespath;
+extern crate rand;
 extern crate regex;
 extern crate rls_analysis as analysis;
 extern crate rls_data as analysis_data;
@@ -48,15 +29,13 @@ use std::process::Command;
 
 use analysis::{AnalysisHost, Target};
 use analysis_data::config::Config as AnalysisConfig;
-use itertools::Itertools;
 use itertools::EitherOrBoth::{Both, Left, Right};
+use itertools::Itertools;
+use jmespath::{ToJmespath, Variable};
+use rand::Rng;
 use regex::Regex;
+use serde::Deserialize;
 use serde_json::Value;
-
-lazy_static! {
-    /// Matches valid JSON pointers.
-    static ref POINTER_RE: Regex = Regex::new(r"^(/(([^/~])|(~[01]))*)*$").unwrap();
-}
 
 error_chain! {
     foreign_links {
@@ -75,32 +54,141 @@ error_chain! {
             description("Directive is not valid")
             display("Directive is not valid: {}", d)
         }
-        JsonPointer(p: String) {
-            description("JSON pointer matched no data")
-            display("JSON pointer '{}' matched no data", p)
+        NullMatch(p: String) {
+            description("JMESPath query matched no data")
+            display("JMESPath query '{}' matched no data", p)
         }
-        ValueMismatch(value: String, re: String) {
-            description("The value did not match the regular expression")
-            display("The value '{}' did not match the regular expression '{}'", value, re)
+        TypeError(expected: String, value: Value) {
+            description("The JMESPath query returned an unexpected type")
+            display("The JMESPath query returned an unexpected type: expected {}, got {}",
+                    expected, value)
         }
-        ValueType(value: Value) {
-            description("The JSON pointer did not point at a string")
-            display("The JSON pointer did not point at a string: {:?}", value)
+        TestFailure(msg: String) {
+            description("The test failed")
+            display("The test failed: {}", msg)
         }
-        UnexpectedPass(value: String, re: String) {
-            description("The value matched the regular expression, but it shouldn't")
-            display("The value '{}' matched the regular expression '{}' but it shouldn't",
-                    value, re)
+        UnexpectedPass(msg: String) {
+            description("The test passed, but it shouldn't")
+            display("The test passed, but it shouldn't: {}", msg)
         }
     }
 }
 
-// If more directives are added, this could be converted into an enum.
 #[derive(Debug)]
+enum Directive {
+    /// The query result is a string and matches a regex.
+    Has(Regex),
+
+    /// The query result is a JSON value that equals another JSON value.
+    Matches(Value),
+
+    /// The query result evaluates to `true`.
+    Assert,
+}
+
+impl PartialEq for Directive {
+    fn eq(&self, other: &Self) -> bool {
+        use Directive::*;
+
+        match (self, other) {
+            (&Has(ref re), &Has(ref other_re)) => re.as_str() == other_re.as_str(),
+            (&Matches(ref val), &Matches(ref other_val)) => val == other_val,
+            (&Assert, &Assert) => true,
+            _ => false,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 struct TestCase {
-    pointer: String,
-    regex: Regex,
+    jmespath: jmespath::Expression<'static>,
     negated: bool,
+    directive: Directive,
+}
+
+impl TestCase {
+    /// Runs the test case. Returns `Ok(())` if the test passes, otherwise returns the reason the
+    /// test failed.
+    fn run(&self, json: &serde_json::Value) -> Result<()> {
+        let expression = self.jmespath.search(json).chain_err(
+            || "could not evaluate JMESPath",
+        )?;
+
+        match self.directive {
+            Directive::Has(ref re) => {
+                let value = match *expression {
+                    Variable::String(ref value) => value,
+                    Variable::Null => {
+                        if self.negated {
+                            return Ok(());
+                        } else {
+                            bail!(ErrorKind::NullMatch(self.jmespath.as_str().into()));
+                        }
+                    }
+                    ref value => {
+                        let value = Value::deserialize(value.clone()).expect(
+                            "could not deserialize JMESPath variable",
+                        );
+
+                        bail!(ErrorKind::TypeError("string".into(), value));
+                    }
+                };
+
+                if re.is_match(&value) && self.negated {
+                    let message = format!("`{}` matched the regex `{}`", value, re.as_str());
+                    bail!(ErrorKind::UnexpectedPass(message));
+                } else if !re.is_match(&value) && !self.negated {
+                    let message = format!("`{}` did not match the regex `{}`", value, re.as_str());
+                    bail!(ErrorKind::TestFailure(message));
+                } else {
+                    Ok(())
+                }
+            }
+            Directive::Matches(ref json) => {
+                let json = json.to_jmespath();
+
+                if expression == json && self.negated {
+                    let message = format!(
+                        "The JMESPath query result `{}` matched the JSON `{}`, but it shouldn't",
+                        expression,
+                        json
+                    );
+                    bail!(ErrorKind::UnexpectedPass(message));
+                } else if expression != json && !self.negated {
+                    let message = format!(
+                        "query result `{}` does not equal JSON `{}`",
+                        expression,
+                        json
+                    );
+                    bail!(ErrorKind::TestFailure(message));
+                } else {
+                    Ok(())
+                }
+            }
+            Directive::Assert => {
+                match *expression {
+                    Variable::Bool(b) => {
+                        if b && self.negated {
+                            bail!(ErrorKind::UnexpectedPass(
+                                "query evaulated to true, expected false".into(),
+                            ));
+                        } else if !b && !self.negated {
+                            bail!(ErrorKind::TestFailure("query evaluated to false".into()));
+                        } else {
+                            Ok(())
+                        }
+                    }
+                    ref value => {
+                        let value = Value::deserialize(value.clone()).expect(
+                            "could not deserialize JMESPath variable",
+                        );
+
+                        bail!(ErrorKind::TypeError("boolean".into(), value));
+                    }
+                }
+            }
+        }
+    }
 }
 
 /// Create analysis data from a given source file. Returns an analysis host with the data loaded.
@@ -181,16 +269,37 @@ fn check(source_file: &Path, host: &AnalysisHost) -> Result<()> {
         .and_then(|stem| stem.to_str())
         .ok_or_else(|| "Invalid source file stem")?;
     let data = rustdoc::create_documentation(host, package_name)?;
-    let json = serde_json::to_value(&data)?;
+    let mut json = serde_json::to_value(&data)?;
+
+    // Shuffle any arrays found in the documentation to ensure that the tests don't depend on their
+    // order.
+    fn shuffle_arrays(json: &mut Value) {
+        match *json {
+            Value::Array(ref mut values) => rand::thread_rng().shuffle(values),
+            Value::Object(ref mut map) => {
+                for (_, ref mut value) in map.iter_mut() {
+                    shuffle_arrays(value);
+                }
+            }
+            _ => (),
+        }
+    }
+
+    shuffle_arrays(&mut json);
 
     let mut source = String::new();
     File::open(source_file)?.read_to_string(&mut source)?;
     let mut found_test = false;
     for (original_line_number, line) in join_line_continuations(&source) {
         if let Some(test_case) = parse_test(&line) {
-            run_test(&json, test_case?).chain_err(|| {
+            let test_case = test_case.chain_err(|| {
+                format!("could not parse test on line {}", original_line_number)
+            })?;
+
+            test_case.run(&json).chain_err(|| {
                 format!("test failed on line {}", original_line_number)
             })?;
+
             if !found_test {
                 found_test = true;
             }
@@ -295,56 +404,42 @@ fn parse_directive(directive: &str, args: &str, negated: bool) -> Result<TestCas
         None => bail!("Could not split directive arguments"),
     };
 
-    match directive {
+    let jmespath = jmespath::compile(&args[0]).chain_err(
+        || "invalid JMESPath syntax",
+    )?;
+
+    let directive = match directive {
         "has" => {
-            if args.len() != 2 {
-                bail!("Not enough arguments");
-            }
+            ensure!(args.len() == 2, "Not enough arguments");
 
-            let pointer = &args[0];
-            if !POINTER_RE.is_match(pointer) {
-                bail!("Invalid JSON pointer syntax");
-            }
-            let regex = Regex::new(&args[1])?;
+            let regex = Regex::new(&args[1]).chain_err(|| "invalid regex syntax")?;
 
-            Ok(TestCase {
-                pointer: pointer.to_owned(),
-                regex,
-                negated,
-            })
+            Directive::Has(regex)
+        }
+        "matches" => {
+            ensure!(args.len() == 2, "not enough arguments");
+
+            let value = serde_json::from_str(&args[1]).chain_err(
+                || "invalid JSON syntax",
+            )?;
+
+            Directive::Matches(value)
+        }
+        "assert" => {
+            ensure!(args.len() == 1, "expected 1 argument");
+
+            Directive::Assert
         }
         _ => {
             bail!("Unknown directive");
         }
-    }
-}
-
-/// Runs a test case. Returns `Ok(())` if the test passes, otherwise returns the reason the test
-/// failed.
-fn run_test(json: &serde_json::Value, case: TestCase) -> Result<()> {
-    let value = match json.pointer(&case.pointer) {
-        Some(value) => value,
-        None if !case.negated => return Err(ErrorKind::JsonPointer(case.pointer).into()),
-        None => return Ok(()),
     };
 
-    let value = value.as_str().ok_or(
-        "The JSON pointer pointed at a type other than string",
-    )?;
-
-    if case.regex.is_match(&value) && case.negated {
-        bail!(ErrorKind::UnexpectedPass(
-            value.to_owned(),
-            case.regex.as_str().to_owned(),
-        ));
-    } else if !case.regex.is_match(&value) && !case.negated {
-        bail!(ErrorKind::ValueMismatch(
-            value.to_owned(),
-            case.regex.as_str().to_owned(),
-        ));
-    } else {
-        Ok(())
-    }
+    Ok(TestCase {
+        jmespath,
+        negated,
+        directive,
+    })
 }
 
 /// Tests generated from the files in tests/source
@@ -391,43 +486,64 @@ mod tests {
     }
 
     #[test]
-    fn pointer_syntax() {
-        assert!(POINTER_RE.is_match("/test"));
-        assert!(POINTER_RE.is_match("/included/0/attributes"));
-        assert!(POINTER_RE.is_match("/attributes/ぁ/Ω/~0~1/"));
-        assert!(!POINTER_RE.is_match("non-pointer"));
-        assert!(!POINTER_RE.is_match("/inval~~id/pointer"));
-    }
-
-    #[test]
     fn parse_test() {
-        let test = super::parse_test("// @has /test 'value'").unwrap().unwrap();
-        assert_eq!(test.pointer, "/test");
-        assert_eq!(test.regex.as_str(), "value");
-        assert!(!test.negated);
-
-        let test = super::parse_test("// @has /included/0/attributes/ 'a module'")
-            .unwrap()
-            .unwrap();
-        assert_eq!(test.pointer, "/included/0/attributes/");
-        assert_eq!(test.regex.as_str(), "a module");
-        assert!(!test.negated);
-
-        let test = super::parse_test("// @has /attributes/ぁ/Ω/~0~1/ 'special characters'")
-            .unwrap()
-            .unwrap();
-        assert_eq!(test.pointer, "/attributes/ぁ/Ω/~0~1/");
-        assert_eq!(test.regex.as_str(), "special characters");
-        assert!(!test.negated);
-
-        let test = super::parse_test("// @!has /some 'value'")
-            .unwrap()
-            .unwrap();
-        assert_eq!(test.pointer, "/some");
-        assert_eq!(test.regex.as_str(), "value");
-        assert!(test.negated);
-
         assert!(super::parse_test(r#"fn main() { println!("no test case"); }"#).is_none());
+
+        let test = super::parse_test("// @has test 'value'").unwrap().unwrap();
+        assert_eq!(
+            test,
+            TestCase {
+                jmespath: jmespath::compile("test").unwrap(),
+                negated: false,
+                directive: Directive::Has(Regex::new("value").unwrap()),
+            }
+        );
+
+        let test = super::parse_test("// @has included[0].attributes 'a module'")
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            test,
+            TestCase {
+                jmespath: jmespath::compile("included[0].attributes").unwrap(),
+                negated: false,
+                directive: Directive::Has(Regex::new("a module").unwrap()),
+            }
+        );
+
+        let test = super::parse_test("// @!has some 'value'").unwrap().unwrap();
+        assert_eq!(
+            test,
+            TestCase {
+                jmespath: jmespath::compile("some").unwrap(),
+                negated: true,
+                directive: Directive::Has(Regex::new("value").unwrap()),
+            }
+        );
+
+        let test = super::parse_test(r#"// @matches some '{ "json": "value" }'"#)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            test,
+            TestCase {
+                jmespath: jmespath::compile("some").unwrap(),
+                negated: false,
+                directive: Directive::Matches(json!({ "json": "value" })),
+            }
+        );
+
+        let test = super::parse_test(r#"// @assert "some.path | contains(@, 'value')""#)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            test,
+            TestCase {
+                jmespath: jmespath::compile("some.path | contains(@, 'value')").unwrap(),
+                negated: false,
+                directive: Directive::Assert,
+            }
+        );
 
         let err = super::parse_test("// @has /test '['").unwrap().unwrap_err();
         assert_err!(err, ErrorKind::InvalidDirective);
@@ -437,7 +553,7 @@ mod tests {
             .unwrap_err();
         assert_err!(err, ErrorKind::InvalidDirective);
 
-        let err = super::parse_test("// @has /inval~~id 'pointer'")
+        let err = super::parse_test("// @has 1234 'pointer'")
             .unwrap()
             .unwrap_err();
         assert_err!(err, ErrorKind::InvalidDirective);
@@ -447,63 +563,71 @@ mod tests {
     fn run_test() {
         let json = json!({
             "test": "value",
+            "nonString": ["non", "string"],
+            "boolean": true,
         });
 
-        super::run_test(
-            &json,
-            TestCase {
-                pointer: "/test".into(),
-                regex: Regex::new("value").unwrap(),
-                negated: false,
-            },
-        ).unwrap();
+        let test = TestCase {
+            jmespath: jmespath::compile("test").unwrap(),
+            directive: Directive::Has(Regex::new("value").unwrap()),
+            negated: false,
+        };
+        test.run(&json).unwrap();
 
-        super::run_test(
-            &json,
-            TestCase {
-                pointer: "/test".into(),
-                regex: Regex::new("nonexistent").unwrap(),
-                negated: true,
-            },
-        ).unwrap();
+        let test = TestCase {
+            jmespath: jmespath::compile("test").unwrap(),
+            directive: Directive::Has(Regex::new("nonexistent").unwrap()),
+            negated: true,
+        };
+        test.run(&json).unwrap();
 
-        super::run_test(
-            &json,
-            TestCase {
-                pointer: "/nonexistent".into(),
-                regex: Regex::new("value").unwrap(),
-                negated: true,
-            },
-        ).unwrap();
+        let test = TestCase {
+            jmespath: jmespath::compile("nonexistent").unwrap(),
+            directive: Directive::Has(Regex::new("value").unwrap()),
+            negated: true,
+        };
+        test.run(&json).unwrap();
 
-        let err = super::run_test(
-            &json,
-            TestCase {
-                pointer: "/test".into(),
-                regex: Regex::new("value").unwrap(),
-                negated: true,
-            },
-        ).unwrap_err();
-        assert_err!(err, ErrorKind::UnexpectedPass);
+        let test = TestCase {
+            jmespath: jmespath::compile("nonString").unwrap(),
+            directive: Directive::Matches(json!(["non", "string"])),
+            negated: false,
+        };
+        test.run(&json).unwrap();
 
-        let err = super::run_test(
-            &json,
-            TestCase {
-                pointer: "/test".into(),
-                regex: Regex::new("wrong value").unwrap(),
-                negated: false,
-            },
-        ).unwrap_err();
-        assert_err!(err, ErrorKind::ValueMismatch);
+        let test = TestCase {
+            jmespath: jmespath::compile("boolean").unwrap(),
+            directive: Directive::Assert,
+            negated: false,
+        };
+        test.run(&json).unwrap();
 
-        let err = super::run_test(
-            &json,
-            TestCase {
-                pointer: "/nonexistent".into(),
-                regex: Regex::new("value").unwrap(),
-                negated: false,
-            },
-        ).unwrap_err();
-        assert_err!(err, ErrorKind::JsonPointer);
+        let test = TestCase {
+            jmespath: jmespath::compile("test").unwrap(),
+            directive: Directive::Has(Regex::new("value").unwrap()),
+            negated: true,
+        };
+        assert_err!(test.run(&json).unwrap_err(), ErrorKind::UnexpectedPass);
+
+        let test = TestCase {
+            jmespath: jmespath::compile("test").unwrap(),
+            directive: Directive::Has(Regex::new("wrong value").unwrap()),
+            negated: false,
+        };
+        assert_err!(test.run(&json).unwrap_err(), ErrorKind::TestFailure);
+
+        let test = TestCase {
+            jmespath: jmespath::compile("nonexistent").unwrap(),
+            directive: Directive::Has(Regex::new("value").unwrap()),
+            negated: false,
+        };
+        assert_err!(test.run(&json).unwrap_err(), ErrorKind::NullMatch);
+
+        let test = TestCase {
+            jmespath: jmespath::compile("nonString").unwrap(),
+            directive: Directive::Has(Regex::new("value").unwrap()),
+            negated: false,
+        };
+        assert_err!(test.run(&json).unwrap_err(), ErrorKind::TypeError);
     }
 }

@@ -25,6 +25,14 @@ fn run() -> io::Result<()> {
     for source_file in fs::read_dir(&source_dir)? {
         let source_file = source_file?.path();
 
+        let is_rust_file = source_file
+            .extension()
+            .map(|ext| ext == "rs")
+            .unwrap_or_default();
+        if !is_rust_file {
+            continue;
+        }
+
         let test_name = Ident::new(
             source_file
                 .file_stem()
