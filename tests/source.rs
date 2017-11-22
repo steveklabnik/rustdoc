@@ -413,7 +413,7 @@ fn parse_test(line: &str) -> Option<Result<TestCase>> {
     if let Some(caps) = DIRECTIVE_RE.captures(line) {
         let directive = &caps["directive"];
         let result = parse_directive(directive, &caps["args"], caps.name("negated").is_some())
-            .map_err(|e| e.context(InvalidDirective { d: line.into() }).into());
+            .map_err(|e| InvalidDirective { d: line.into() }.context(e).into());
         Some(result)
     } else {
         None
