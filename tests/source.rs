@@ -44,6 +44,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[fail(display = "Directive is not valid: {}", d)]
 struct InvalidDirective {
     d: String,
+    error: failure::Error,
 }
 
 #[derive(Debug, Fail)]
@@ -400,7 +401,7 @@ fn join_line_continuations(contents: &str) -> Vec<(usize, String)> {
 /// Optionally parses a test case from a single line. If the line contains a test case, returns a
 /// Result containing a tuple of the JSON pointer and the regular expression. If there is no test
 /// case contained in the line, returns `None`.
-fn parse_test(line: &str) -> Option<Result<TestCase>> {
+fn parse_test(line: &str) -> Option<::std::result::Result<TestCase, InvalidDirective>> {
     lazy_static! {
         static ref DIRECTIVE_RE: Regex =
             Regex::new(r"(?x)
@@ -413,7 +414,7 @@ fn parse_test(line: &str) -> Option<Result<TestCase>> {
     if let Some(caps) = DIRECTIVE_RE.captures(line) {
         let directive = &caps["directive"];
         let result = parse_directive(directive, &caps["args"], caps.name("negated").is_some())
-            .map_err(|e| InvalidDirective { d: line.into() }.context(e).into());
+            .map_err(|e| InvalidDirective { d: line.into(), error: e });
         Some(result)
     } else {
         None
@@ -579,18 +580,11 @@ mod tests {
             }
         );
 
-        let err = super::parse_test("// @has /test '['").unwrap().unwrap_err();
-        assert_err!(err, InvalidDirective);
+        assert!(super::parse_test("// @has /test '['").unwrap().is_err());
 
-        let err = super::parse_test("// @garbage /test 'abc'")
-            .unwrap()
-            .unwrap_err();
-        assert_err!(err, InvalidDirective);
+        assert!(super::parse_test("// @garbage /test 'abc'").unwrap().is_err());
 
-        let err = super::parse_test("// @has 1234 'pointer'")
-            .unwrap()
-            .unwrap_err();
-        assert_err!(err, InvalidDirective);
+        assert!(super::parse_test("// @has 1234 'pointer'").unwrap().is_err());
     }
 
     #[test]
