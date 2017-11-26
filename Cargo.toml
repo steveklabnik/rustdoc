@@ -38,6 +38,7 @@ quote = "0.3"
 [dev-dependencies]
 failure = "0.1.0"
 failure_derive = "0.1.0"
+indoc = "0.2"
 itertools = "0.6"
 jmespath = "0.2"
 jsonapi = "0.5.2"
