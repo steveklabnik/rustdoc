@@ -108,7 +108,7 @@ cargo run --release --bin rustdoc -- --manifest-path=example/Cargo.toml open
 ## Known issues (and their solution)
 
  * "javascript error: data.json isn't found": go to `example/target/doc` and then run
-   `python -m SimpleHTTPServer`. Then go to the given URL above.
+   `python -m SimpleHTTPServer` (or `python -m http.server` if you are using python 3). Then go to the given URL above.
 
 ## Contributing
 

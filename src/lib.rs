@@ -4,7 +4,9 @@
 #![warn(missing_docs)]
 
 #[macro_use]
-extern crate error_chain;
+extern crate failure;
+#[macro_use]
+extern crate failure_derive;
 #[macro_use]
 extern crate serde_derive;
 #[cfg_attr(test, macro_use)]
@@ -39,14 +41,19 @@ use std::path::{Path, PathBuf};
 use std::process::{self, Command, Stdio};
 
 use cargo::Target;
-use error::*;
 use json::Documentation;
 use test::TestResult;
 use ui::Ui;
 
-pub use error::{Error, ErrorKind};
 pub use json::create_documentation;
 pub use ui::Verbosity;
+
+use failure::Error;
+use failure::Fail;
+/// The general Result type for `rustdoc`.
+///
+/// Similar to `std::io::Result` and friends, this makes error handling a bit more succinct.
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// A structure that contains various fields that hold data in order to generate doc output.
 #[derive(Debug)]
@@ -72,7 +79,9 @@ impl Config {
         let host = analysis::AnalysisHost::new(analysis::Target::Debug);
 
         if !manifest_path.is_file() || !manifest_path.ends_with("Cargo.toml") {
-            bail!("The --manifest-path must be a path to a Cargo.toml file");
+            return Err(failure::err_msg(
+                "The --manifest-path must be a path to a Cargo.toml file",
+            ));
         }
 
         Ok(Config {
@@ -173,9 +182,10 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
             .stderr(Stdio::piped())
             .spawn()
             .map_err(|e| if e.kind() == io::ErrorKind::NotFound {
-                Error::with_chain(e, format!("frontend `{}` not found", frontend))
+                e.context(format!("frontend `{}` not found", frontend))
+                    .into()
             } else {
-                e.into()
+                failure::Error::from(e)
             })?;
 
         {
@@ -188,7 +198,10 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
             task.error();
             drop(task);
             println!("\n{}", String::from_utf8_lossy(&output.stderr));
-            bail!("frontend `{}` did not execute successfully", frontend);
+            return Err(format_err!(
+                "frontend `{}` did not execute successfully",
+                frontend
+            ));
         }
     }
 
@@ -197,9 +210,9 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
 
 /// Run all documentation tests.
 pub fn test(config: &Config) -> Result<()> {
-    let doc_json = File::open(config.documentation_path()).chain_err(
-        || "could not find generated documentation",
-    )?;
+    let doc_json = File::open(config.documentation_path()).map_err(|e| {
+        failure::Error::from(e.context("could not find generated documentation"))
+    })?;
     let docs: Documentation = serde_json::from_reader(doc_json)?;
 
     let krate = docs.data.as_ref().unwrap();

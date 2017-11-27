@@ -7,7 +7,7 @@ extern crate clap;
 
 use clap::{App, Arg, SubCommand};
 
-use rustdoc::{build, Config, Verbosity};
+use rustdoc::{build, Config, Result, Verbosity};
 
 use std::io::{Write, stderr};
 use std::process;
@@ -16,7 +16,7 @@ use std::path::PathBuf;
 static ALL_ARTIFACTS: &[&str] = &["frontend", "json"];
 static DEFAULT_ARTIFACTS: &[&str] = &["frontend"];
 
-fn run() -> rustdoc::error::Result<()> {
+fn run() -> Result<()> {
     let version = env!("CARGO_PKG_VERSION");
 
     let matches = App::new("rustdoc")
@@ -102,21 +102,17 @@ fn run() -> rustdoc::error::Result<()> {
 }
 
 fn main() {
-    if let Err(ref e) = run() {
+    if let Err(e) = run() {
         let stderr = &mut stderr();
         let errmsg = "Error writing to stderr";
 
         writeln!(stderr, "Error: {}", e).expect(errmsg);
 
-        for e in e.iter().skip(1) {
-            writeln!(stderr, "Caused by: {}", e).expect(errmsg);
-        }
+        writeln!(stderr, "Caused by: {}", e.cause()).expect(errmsg);
 
         // The backtrace is not always generated. Try to run this example
         // with `RUST_BACKTRACE=1`.
-        if let Some(backtrace) = e.backtrace() {
-            writeln!(stderr, "Backtrace: {:?}", backtrace).expect(errmsg);
-        }
+        writeln!(stderr, "Backtrace, if any: {:?}", e.backtrace()).expect(errmsg);
 
         process::exit(1);
     }
