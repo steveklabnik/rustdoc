@@ -129,6 +129,27 @@ pub fn create_documentation(host: &AnalysisHost, crate_name: &str) -> Result<Doc
             .attributes(String::from("name"), def.name)
             .attributes(String::from("docs"), def.docs);
 
+        // if this is a module...
+        if def.kind == DefKind::Mod {
+            // ... and it has a parent...
+            if let Some(parent_id) = def.parent {
+                // then we need to also add a relationship for the parent...
+                let parent_def = host.get_def(parent_id).unwrap();
+
+                // ... but only if the parent isn't the root, as that's
+                // represented by a crate, rather than by a module.
+                if parent_def.qualname != root_def.qualname {
+                    let data = Data::new().ty(String::from("module")).id(
+                        parent_def
+                            .qualname
+                            .clone(),
+                    );
+
+                    document.add_singular_relationship(String::from("parent"), data);
+                }
+            }
+        }
+
         for id in child_ids {
             let def = host.get_def(id).unwrap();
             let (ty, child_ty) = match def.kind {
