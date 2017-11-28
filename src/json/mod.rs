@@ -1,6 +1,7 @@
 //! Code used to serialize crate data to JSON.
 
 mod api;
+mod attributes;
 
 pub use self::api::*;
 
@@ -41,6 +42,10 @@ pub fn create_documentation(host: &AnalysisHost, crate_name: &str) -> Result<Doc
     let mut document = Document::new()
         .ty(String::from("crate"))
         .id(crate_name.to_string())
+        .attributes(
+            String::from("summary"),
+            attributes::plain_summary(&root_def.docs),
+        )
         .attributes(String::from("docs"), root_def.docs);
 
     // Now that we have that, it's time to get the children; these are
@@ -127,6 +132,10 @@ pub fn create_documentation(host: &AnalysisHost, crate_name: &str) -> Result<Doc
             .ty(ty.clone())
             .id(def.qualname.clone())
             .attributes(String::from("name"), def.name)
+            .attributes(
+                String::from("summary"),
+                attributes::plain_summary(&def.docs),
+            )
             .attributes(String::from("docs"), def.docs);
 
         for id in child_ids {
