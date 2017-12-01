@@ -134,6 +134,10 @@ pub fn create_documentation(host: &AnalysisHost, crate_name: &str) -> Result<Doc
             .attributes(String::from("name"), def.name)
             .attributes(
                 String::from("summary"),
+                String::from(attributes::summary(&def.docs)),
+            )
+            .attributes(
+                String::from("plainSummary"),
                 attributes::plain_summary(&def.docs),
             )
             .attributes(String::from("docs"), def.docs);

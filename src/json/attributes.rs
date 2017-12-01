@@ -2,6 +2,15 @@
 
 use pulldown_cmark::{Event, Parser, Tag};
 
+/// Returns the first paragraph of markdown, with formatting intact.
+pub fn summary(markdown: &str) -> &str {
+    if let Some(index) = markdown.find("\n\n") {
+        &markdown[..index]
+    } else {
+        markdown
+    }
+}
+
 /// Given a raw block of markdown, this function extracts the first paragraph and strips it of any
 /// formatting.
 pub fn plain_summary(markdown: &str) -> String {
@@ -25,6 +34,15 @@ pub fn plain_summary(markdown: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn summary() {
+        assert_eq!(super::summary("Summary\n\nDetails"), "Summary");
+
+        assert_eq!(super::summary("Example with `code`"), "Example with `code`");
+
+        assert_eq!(super::summary("# Heading"), "# Heading");
+    }
+
     #[test]
     fn plain_summary() {
         assert_eq!(&super::plain_summary("Summary\n\nDetails"), "Summary");
