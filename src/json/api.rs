@@ -72,7 +72,17 @@ pub struct Document {
     /// An optional field used to show the relationship between the crate to the other items in the
     /// crate
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub relationships: Option<HashMap<String, HashMap<String, Vec<Data>>>>,
+    pub relationships: Option<HashMap<String, HashMap<String, VecOrData>>>,
+}
+
+/// Relationships can be singular or plural, so this type makes that happen
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum VecOrData {
+    /// for a plural relationship
+    Vec(Vec<Data>),
+    /// for a singular relationship
+    Data(Data),
 }
 
 /// Used to populate the `relationships` `data` field in the serialized JSON
@@ -178,7 +188,7 @@ impl Document {
             // it to the `Document`.
             None => {
                 let mut data_map = HashMap::with_capacity(DATA_SIZE);
-                data_map.insert(String::from("data"), data);
+                data_map.insert(String::from("data"), VecOrData::Vec(data));
 
                 let mut relationships = HashMap::with_capacity(METADATA_SIZE);
                 relationships.insert(ty, data_map);
@@ -188,7 +198,7 @@ impl Document {
             // type, etc.) and the data.
             Some(ref mut relationships) => {
                 let mut data_map = HashMap::with_capacity(DATA_SIZE);
-                data_map.insert(String::from("data"), data);
+                data_map.insert(String::from("data"), VecOrData::Vec(data));
 
                 relationships.insert(ty, data_map);
             }
@@ -201,7 +211,7 @@ impl Document {
         match self.relationships {
             None => {
                 let mut data_map = HashMap::with_capacity(DATA_SIZE);
-                data_map.insert(String::from("data"), vec![data]);
+                data_map.insert(String::from("data"), VecOrData::Vec(vec![data]));
 
                 let mut relationships = HashMap::with_capacity(METADATA_SIZE);
                 relationships.insert(ty, data_map);
@@ -210,13 +220,38 @@ impl Document {
             Some(ref mut relationships) => {
                 let entry = relationships.entry(ty).or_insert_with(|| {
                     let mut map = HashMap::with_capacity(DATA_SIZE);
-                    map.insert(String::from("data"), Vec::new());
+                    map.insert(String::from("data"), VecOrData::Vec(Vec::new()));
                     map
                 });
 
                 // We know that we have a "data" entry because we created it above
-                let data_vec = entry.get_mut("data").unwrap();
-                data_vec.push(data);
+                // and we know it's a Vec for the same reason
+                if let &mut VecOrData::Vec(ref mut data_vec) = entry.get_mut("data").unwrap() {
+                    data_vec.push(data);
+                }
+            }
+        }
+    }
+
+    /// Like add_relationship, but makes it singular
+    ///
+    /// if the relationship already exists, nothing happens
+    pub fn add_singular_relationship(&mut self, ty: String, data: Data) {
+        match self.relationships {
+            None => {
+                let mut data_map = HashMap::with_capacity(DATA_SIZE);
+                data_map.insert(String::from("data"), VecOrData::Data(data));
+
+                let mut relationships = HashMap::with_capacity(METADATA_SIZE);
+                relationships.insert(ty, data_map);
+                self.relationships = Some(relationships);
+            }
+            Some(ref mut relationships) => {
+                relationships.entry(ty).or_insert_with(|| {
+                    let mut map = HashMap::with_capacity(DATA_SIZE);
+                    map.insert(String::from("data"), VecOrData::Data(data));
+                    map
+                });
             }
         }
     }
@@ -246,7 +281,7 @@ impl Data {
 
 #[cfg(test)]
 mod tests {
-    use super::{Data, Document, Documentation};
+    use super::{Data, Document, Documentation, VecOrData};
 
     use serde_json;
 
@@ -266,8 +301,12 @@ mod tests {
 
         {
             let relationships = &document.relationships.as_ref().unwrap()["modules"]["data"];
-            assert_eq!(relationships.len(), 1);
-            assert_eq!(&relationships[0].id, "example::module_one");
+            if let &VecOrData::Vec(ref relationships) = relationships {
+                assert_eq!(relationships.len(), 1);
+                assert_eq!(&relationships[0].id, "example::module_one");
+            } else {
+                panic!("relationship was not plural");
+            }
         }
 
         document.relationships(
@@ -281,8 +320,12 @@ mod tests {
 
         {
             let relationships = &document.relationships.as_ref().unwrap()["modules"]["data"];
-            assert_eq!(relationships.len(), 1);
-            assert_eq!(&relationships[0].id, "example::module_two");
+            if let &VecOrData::Vec(ref relationships) = relationships {
+                assert_eq!(relationships.len(), 1);
+                assert_eq!(&relationships[0].id, "example::module_two");
+            } else {
+                panic!("relationship was not plural");
+            }
         }
     }
 
