@@ -47,17 +47,18 @@ fn run() -> io::Result<()> {
             #[test]
             fn #test_name() {
                 use std::env;
+
                 use tempdir::TempDir;
 
                 let tempdir = TempDir::new("rustdoc-test").unwrap();
                 let source_file = env::current_dir().unwrap().join(#source_file_path);
                 let host = ::generate_analysis(&source_file, tempdir.path()).unwrap();
                 if let Err(err) = ::check(&source_file, &host) {
-                    println!("error: {}", err);
+                    for cause in err.causes() {
+                        println!("cause: {}", cause);
+                    }
 
-                    println!("caused by: {}", err.cause());
-
-                    println!("backtrace, if any: {:?}", err.backtrace());
+                    println!("{}", err.backtrace());
 
                     panic!();
                 }
