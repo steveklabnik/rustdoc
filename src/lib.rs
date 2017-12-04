@@ -8,6 +8,8 @@ extern crate failure;
 #[cfg_attr(test, macro_use)]
 #[cfg(test)]
 extern crate indoc;
+#[macro_use]
+extern crate log;
 #[cfg_attr(test, macro_use)]
 extern crate quote;
 #[macro_use]
