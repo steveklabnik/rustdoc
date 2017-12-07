@@ -44,3 +44,11 @@ pub struct MovedFlag {
     /// A message explaning where the flag moved to
     pub msg: String,
 }
+
+/// Thrown whenever creation of documentation tests fail
+#[derive(Debug, Fail)]
+#[fail(display = "Unable to test documentation: \"{}\"", output)]
+pub struct DocTestErr {
+    /// The output of the Command that failed
+    pub output: String,
+}

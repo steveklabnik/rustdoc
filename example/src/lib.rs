@@ -11,6 +11,10 @@
 //
 // @matches "included[?id=='nested_modules::example_module'] \
 //          .relationships.parent" []
+/// An example module
+/// ```rust
+/// assert!(true);
+/// ```
 pub mod example_module {
 
     // For the child:

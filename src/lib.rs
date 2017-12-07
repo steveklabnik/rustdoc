@@ -36,13 +36,11 @@ use std::env;
 use std::fs::{self, File};
 use std::io::prelude::*;
 use std::io;
-use std::iter;
 use std::path::{Path, PathBuf};
-use std::process::{self, Command, Stdio};
+use std::process::{Command, Stdio};
 
 use cargo::Target;
 use json::Documentation;
-use test::TestResult;
 use ui::Ui;
 
 pub use json::create_documentation;
@@ -228,81 +226,33 @@ pub fn test(config: &Config) -> Result<()> {
         .map_err(|e| failure::Error::from(e.context("could not find generated documentation")))?;
     let docs: Documentation = serde_json::from_reader(doc_json)?;
 
+    // TODO a better way to find crate name?
     let krate = docs.data.as_ref().unwrap();
-    let tests: Vec<_> = iter::once(krate)
-        .chain(docs.included.iter().flat_map(|data| data))
-        .map(|data| (&data.id, test::gather_tests(&data)))
-        .collect();
+    let crate_name = krate.id.split("::").next().unwrap();
 
-    // Run the tests.
-    static SUCCESS_MESSAGE: &str = "ok";
-    static FAILURE_MESSAGE: &str = "FAILED";
+    let location = config.output_path().join("tests");
+    let tests = {
+        let task = config.ui.start_task("Finding tests");
+        task.report("In Progress");
+        test::find_tests(&docs)
+    };
 
-    let num_tests: usize = tests.iter().map(|&(_, ref tests)| tests.len()).sum();
-    println!("running {} tests", num_tests);
-
-    let mut passed = 0;
-    let mut failures = vec![];
-    for (id, tests) in tests {
-        for (number, test) in tests.iter().enumerate() {
-            // FIXME: Make the name based off the file and line number.
-            let name = format!("{} - {}", id, number);
-            print!("test {} ... ", name);
-            io::stdout().flush()?;
-
-            let message = match test::run_test(config, test)? {
-                TestResult::Success => {
-                    passed += 1;
-                    SUCCESS_MESSAGE
-                }
-                TestResult::Failure(output) => {
-                    failures.push((name, output));
-                    FAILURE_MESSAGE
-                }
-            };
-
-            println!("{}", message);
-        }
+    {
+        let task = config.ui.start_task("Saving tests");
+        task.report("In Progress");
+        test::save_tests(&tests, &location, &crate_name)?;
     }
 
-    if !failures.is_empty() {
-        // Print the output of each failure.
-        for &(ref name, ref output) in &failures {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let stdout = stdout.trim();
+    let binary = {
+        let task = config.ui.start_task("Compiling tests");
+        task.report("In Progress");
+        test::compile_tests(&config, &location)?
+    };
 
-            if !stdout.is_empty() {
-                println!("\n---- {} stdout ----\n{}", name, stdout);
-            }
-
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            let stderr = stderr.trim();
-
-            if !stderr.is_empty() {
-                println!("\n---- {} stderr ----\n{}", name, stderr);
-            }
-        }
-
-        // Print a summary of all failures at the bottom.
-        println!("\nfailures:");
-        for &(ref name, _) in &failures {
-            println!("    {}", name);
-        }
-    }
-
-    println!(
-        "\ntest result: {}. {} passed; {} failed; 0 ignored; 0 measured; 0 filtered out",
-        if failures.is_empty() {
-            SUCCESS_MESSAGE
-        } else {
-            FAILURE_MESSAGE
-        },
-        passed,
-        failures.len()
-    );
-
-    if !failures.is_empty() {
-        process::exit(1);
+    {
+        let task = config.ui.start_task("Executing tests");
+        task.report("In Progress");
+        test::execute_tests(&binary)?;
     }
 
     Ok(())
