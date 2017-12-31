@@ -184,7 +184,7 @@ fn run() -> Result<()> {
     } else {
         Verbosity::Normal
     };
-    let config = Config::new(verbosity, manifest_path)?;
+    let mut config = Config::new(verbosity, manifest_path)?;
 
     match matches.subcommand() {
         ("build", Some(matches)) => {
@@ -193,6 +193,11 @@ fn run() -> Result<()> {
                 .values_of("artifacts")
                 .map(|values| values.collect())
                 .unwrap_or_else(|| DEFAULT_ARTIFACTS.iter().map(|&artifact| artifact).collect());
+
+            if let Some(output_path) = matches.value_of("output") {
+                config.set_output_path(PathBuf::from(output_path));
+            }
+
             build(&config, &artifacts)?;
             if matches.is_present("open") {
                 config.open_docs()?;
@@ -276,7 +281,6 @@ fn check_unimplemented_flags(matches: &ArgMatches) {
     ];
 
     let unimplemented_build_flags = [
-        "output",
         "crate-name",
         "library-path",
         "cfg",

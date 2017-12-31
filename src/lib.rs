@@ -62,6 +62,9 @@ pub struct Config {
     /// Path to the `Cargo.toml` file for the crate being analyzed
     manifest_path: PathBuf,
 
+    /// Path to place rustdoc output
+    output_path: Option<PathBuf>,
+
     /// Contains the Cargo analysis output for the crate being documented
     host: analysis::AnalysisHost,
 }
@@ -85,6 +88,7 @@ impl Config {
         Ok(Config {
             ui: Ui::new(verbosity),
             manifest_path,
+            output_path: None,
             host,
         })
     }
@@ -97,7 +101,15 @@ impl Config {
 
     /// Returns the directory where output files should be placed
     pub fn output_path(&self) -> PathBuf {
-        self.root_path().join("target").join("doc")
+        match self.output_path {
+            Some(ref path) => path.clone(),
+            None => self.root_path().join("target").join("doc"),
+        }
+    }
+
+    /// Set the directory where output files should be placed
+    pub fn set_output_path(&mut self, output_path: PathBuf) {
+        self.output_path = Some(output_path);
     }
 
     /// Returns the path to the generated documentation.
