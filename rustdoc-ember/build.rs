@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use std::process;
 
 use glob::glob;
-use quote::{Tokens, ToTokens};
+use quote::{ToTokens, Tokens};
 
 /// Location of the ember frontend dist folder
 const DIST: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../frontend/dist/");
@@ -25,9 +25,7 @@ pub struct Asset {
 }
 
 fn run() -> io::Result<()> {
-    let assets = acquire_assets().map_err(
-        |e| io::Error::new(io::ErrorKind::Other, e),
-    )?;
+    let assets = acquire_assets().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     let tokens = quote!(vec!#assets);
 
     let asset_out = Path::new(&env::var("OUT_DIR").unwrap()).join("asset.in");

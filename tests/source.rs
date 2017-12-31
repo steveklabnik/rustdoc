@@ -31,7 +31,7 @@ use analysis_data::config::Config as AnalysisConfig;
 use failure::{Error, ResultExt};
 use itertools::EitherOrBoth::{Both, Left, Right};
 use itertools::Itertools;
-use jmespath::{ToJmespath, Variable, JmespathError};
+use jmespath::{JmespathError, ToJmespath, Variable};
 use rand::Rng;
 use regex::Regex;
 use serde::Deserialize;
@@ -42,32 +42,28 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Fail)]
 enum TestParseError {
-    #[fail(display = "could not split directive arguments")]
-    Quote,
+    #[fail(display = "could not split directive arguments")] Quote,
 
-    #[fail(display = "regex syntax error")]
-    RegexSyntax(#[cause] regex::Error),
+    #[fail(display = "regex syntax error")] RegexSyntax(#[cause] regex::Error),
 
-    #[fail(display = "JMESPath syntax error")]
-    JmespathSyntax(#[cause] JmespathError),
+    #[fail(display = "JMESPath syntax error")] JmespathSyntax(#[cause] JmespathError),
 
     #[fail(display = "bad number of arguments: expected {}, got {}", expected, got)]
-    BadArguments { expected: usize, got: usize },
+    BadArguments {
+        expected: usize,
+        got: usize,
+    },
 
-    #[fail(display = "invalid JSON syntax")]
-    JsonSyntax(#[cause] serde_json::Error),
+    #[fail(display = "invalid JSON syntax")] JsonSyntax(#[cause] serde_json::Error),
 
-    #[fail(display = "invalid directive: {}", _0)]
-    UnknownDirective(String),
+    #[fail(display = "invalid directive: {}", _0)] UnknownDirective(String),
 }
 
 #[derive(Debug, Fail)]
 enum TestFailure {
-    #[fail(display = "assertion failed: {}", _0)]
-    Assertion(String),
+    #[fail(display = "assertion failed: {}", _0)] Assertion(String),
 
-    #[fail(display = "query matched no data")]
-    NullMatch,
+    #[fail(display = "query matched no data")] NullMatch,
 
     #[fail(display = "query returned unexpected type: expected {}, got {}", expected, value)]
     TypeError {
@@ -75,8 +71,7 @@ enum TestFailure {
         value: Value,
     },
 
-    #[fail(display = "could not evaluate query")]
-    QueryEvaluation(#[cause] JmespathError),
+    #[fail(display = "could not evaluate query")] QueryEvaluation(#[cause] JmespathError),
 }
 
 #[derive(Debug)]
@@ -115,7 +110,9 @@ impl TestCase {
     /// Runs the test case. Returns `Ok(())` if the test passes, otherwise returns the reason the
     /// test failed.
     fn run(&self, json: &serde_json::Value) -> StdResult<(), TestFailure> {
-        let expression = self.jmespath.search(json).map_err(|e| TestFailure::QueryEvaluation(e))?;
+        let expression = self.jmespath
+            .search(json)
+            .map_err(|e| TestFailure::QueryEvaluation(e))?;
 
         match self.directive {
             Directive::Has(ref re) => {
@@ -124,9 +121,8 @@ impl TestCase {
                     Variable::Null if self.negated => return Ok(()),
                     Variable::Null => return Err(TestFailure::NullMatch),
                     ref value => {
-                        let value = Value::deserialize(value.clone()).expect(
-                            "could not deserialize JMESPath variable",
-                        );
+                        let value = Value::deserialize(value.clone())
+                            .expect("could not deserialize JMESPath variable");
                         return Err(TestFailure::TypeError {
                             expected: String::from("string"),
                             value,
@@ -136,10 +132,16 @@ impl TestCase {
 
                 if re.is_match(&value) && self.negated {
                     return Err(TestFailure::Assertion(format!(
-                        "`{}` matched the regex `{}`", value, &re.as_str())));
+                        "`{}` matched the regex `{}`",
+                        value,
+                        &re.as_str()
+                    )));
                 } else if !re.is_match(&value) && !self.negated {
                     return Err(TestFailure::Assertion(format!(
-                        "`{}` did not match the regex `{}`", value, &re.as_str())).into());
+                        "`{}` did not match the regex `{}`",
+                        value,
+                        &re.as_str()
+                    )).into());
                 } else {
                     Ok(())
                 }
@@ -150,53 +152,49 @@ impl TestCase {
                 if expression == json && self.negated {
                     return Err(TestFailure::Assertion(format!(
                         "query result `{}` matched JSON `{}`",
-                        expression,
-                        json
-
-                                )));
+                        expression, json
+                    )));
                 } else if expression != json && !self.negated {
                     return Err(TestFailure::Assertion(format!(
                         "query result `{}` does not match JSON `{}`",
-                        expression,
-                        json
+                        expression, json
                     )).into());
                 } else {
                     Ok(())
                 }
             }
-            Directive::Assert => {
-                match *expression {
-                    Variable::Bool(b) => {
-                        if b && self.negated {
-                            return Err(TestFailure::Assertion(
-                                String::from("query evaluated to true, expected false")).into());
-                        } else if !b && !self.negated {
-                            return Err(TestFailure::Assertion(
-                                String::from("query evaluated to false")).into());
-                        } else {
-                            Ok(())
-                        }
-                    }
-                    ref value => {
-                        let value = Value::deserialize(value.clone()).expect(
-                            "could not deserialize JMESPath variable",
-                        );
-                        return Err(TestFailure::TypeError {
-                            expected: String::from("boolean"),
-                            value
-                        }.into());
+            Directive::Assert => match *expression {
+                Variable::Bool(b) => {
+                    if b && self.negated {
+                        return Err(TestFailure::Assertion(String::from(
+                            "query evaluated to true, expected false",
+                        )).into());
+                    } else if !b && !self.negated {
+                        return Err(TestFailure::Assertion(String::from(
+                            "query evaluated to false",
+                        )).into());
+                    } else {
+                        Ok(())
                     }
                 }
-            }
+                ref value => {
+                    let value = Value::deserialize(value.clone())
+                        .expect("could not deserialize JMESPath variable");
+                    return Err(TestFailure::TypeError {
+                        expected: String::from("boolean"),
+                        value,
+                    }.into());
+                }
+            },
         }
     }
 }
 
 /// Create analysis data from a given source file. Returns an analysis host with the data loaded.
 fn generate_analysis(source_file: &Path, tempdir: &Path) -> Result<AnalysisHost> {
-    let source_filename = source_file.to_str().ok_or(failure::err_msg(
-        "Source filename contained invalid UTF-8",
-    ))?;
+    let source_filename = source_file
+        .to_str()
+        .ok_or(failure::err_msg("Source filename contained invalid UTF-8"))?;
 
     let analysis_config = AnalysisConfig {
         full_docs: true,
@@ -212,14 +210,14 @@ fn generate_analysis(source_file: &Path, tempdir: &Path) -> Result<AnalysisHost>
         )
         .args(&["-Z", "save-analysis"])
         .arg(source_filename)
-        .current_dir(tempdir.to_str().expect(
-            "tempdir filename contained invalid UTF-8",
-        ))
+        .current_dir(
+            tempdir
+                .to_str()
+                .expect("tempdir filename contained invalid UTF-8"),
+        )
         .status()?;
     if !rustc_status.success() {
-        return Err(
-            failure::err_msg(format!("Compilation of {} failed", source_filename)).into(),
-        );
+        return Err(failure::err_msg(format!("Compilation of {} failed", source_filename)).into());
     }
 
     // rls-analysis expects the analysis files to be in a specific directory -- one usually created
@@ -245,9 +243,10 @@ fn generate_analysis(source_file: &Path, tempdir: &Path) -> Result<AnalysisHost>
     #[cfg(windows)]
     fn workaround(tempdir: &Path) -> Result<()> {
         let save_analysis_dir = tempdir.join("save-analysis-temp");
-        let expected_analysis_dir = tempdir.join("target").join("rls").join(
-            &Target::Debug.to_string(),
-        );
+        let expected_analysis_dir = tempdir
+            .join("target")
+            .join("rls")
+            .join(&Target::Debug.to_string());
 
         fs::create_dir_all(&expected_analysis_dir)?;
 
@@ -279,11 +278,9 @@ fn check(source_file: &Path, host: &AnalysisHost) -> Result<()> {
     fn shuffle_arrays(json: &mut Value) {
         match *json {
             Value::Array(ref mut values) => rand::thread_rng().shuffle(values),
-            Value::Object(ref mut map) => {
-                for (_, ref mut value) in map.iter_mut() {
-                    shuffle_arrays(value);
-                }
-            }
+            Value::Object(ref mut map) => for (_, ref mut value) in map.iter_mut() {
+                shuffle_arrays(value);
+            },
             _ => (),
         }
     }
@@ -295,10 +292,14 @@ fn check(source_file: &Path, host: &AnalysisHost) -> Result<()> {
     let mut found_test = false;
     for (original_line_number, line) in join_line_continuations(&source) {
         if let Some(test_parse_result) = parse_test(&line) {
-            let test_case = test_parse_result.context(
-                format!("could not parse test on line {}: {}", original_line_number, line))?;
-            test_case.run(&json).context(
-                format!("test failed on line {}: {}", original_line_number, line))?;
+            let test_case = test_parse_result.context(format!(
+                "could not parse test on line {}: {}",
+                original_line_number, line
+            ))?;
+            test_case.run(&json).context(format!(
+                "test failed on line {}: {}",
+                original_line_number, line
+            ))?;
 
             if !found_test {
                 found_test = true;
@@ -307,9 +308,7 @@ fn check(source_file: &Path, host: &AnalysisHost) -> Result<()> {
     }
 
     if !found_test {
-        return Err(
-            failure::err_msg(format!("Found no tests in {}", source_file.display())).into(),
-        );
+        return Err(failure::err_msg(format!("Found no tests in {}", source_file.display())).into());
     }
 
     Ok(())
@@ -333,7 +332,6 @@ fn join_line_continuations(contents: &str) -> Vec<(usize, String)> {
     for (line_number, line) in lines {
         let line_number = line_number + 1;
         let mut line = if let Some(ref last_line) = last_line {
-
             // Strip the common prefix from the last line.
             line.chars()
                 .zip_longest(last_line.chars())
@@ -392,7 +390,11 @@ fn parse_test(line: &str) -> Option<::std::result::Result<TestCase, TestParseErr
 
     if let Some(caps) = DIRECTIVE_RE.captures(line) {
         let directive = &caps["directive"];
-        Some(parse_directive(directive, &caps["args"], caps.name("negated").is_some()))
+        Some(parse_directive(
+            directive,
+            &caps["args"],
+            caps.name("negated").is_some(),
+        ))
     } else {
         None
     }
@@ -400,14 +402,20 @@ fn parse_test(line: &str) -> Option<::std::result::Result<TestCase, TestParseErr
 
 fn ensure_arg_length(args: &[String], expected: usize) -> StdResult<(), TestParseError> {
     if args.len() != expected {
-        return Err(TestParseError::BadArguments { expected, got: args.len() });
+        return Err(TestParseError::BadArguments {
+            expected,
+            got: args.len(),
+        });
     }
 
     Ok(())
 }
 
-fn parse_directive(directive: &str, args: &str, negated: bool)
-    -> StdResult<TestCase, TestParseError> {
+fn parse_directive(
+    directive: &str,
+    args: &str,
+    negated: bool,
+) -> StdResult<TestCase, TestParseError> {
     let args = shlex::split(args).ok_or_else(|| TestParseError::Quote)?;
 
     let jmespath = jmespath::compile(&args[0]).map_err(|e| TestParseError::JmespathSyntax(e))?;
@@ -545,13 +553,19 @@ mod tests {
         let err = super::parse_test("// @has test '['").unwrap().unwrap_err();
         assert_err!(err, TestParseError::RegexSyntax(..));
 
-        let err = super::parse_test("// @has /test 'test'").unwrap().unwrap_err();
+        let err = super::parse_test("// @has /test 'test'")
+            .unwrap()
+            .unwrap_err();
         assert_err!(err, TestParseError::JmespathSyntax(..));
 
-        let err = super::parse_test("// @garbage test 'abc'").unwrap().unwrap_err();
+        let err = super::parse_test("// @garbage test 'abc'")
+            .unwrap()
+            .unwrap_err();
         assert_err!(err, TestParseError::UnknownDirective(..));
 
-        let err = super::parse_test("// @has 1234 'pointer'").unwrap().unwrap_err();
+        let err = super::parse_test("// @has 1234 'pointer'")
+            .unwrap()
+            .unwrap_err();
         assert_err!(err, TestParseError::JmespathSyntax(..));
     }
 

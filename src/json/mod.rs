@@ -30,9 +30,9 @@ pub fn create_documentation(host: &AnalysisHost, crate_name: &str) -> Result<Doc
     let root_id = match id {
         Some(&(id, _)) => id,
         _ => {
-            return Err(
-                error::CrateErr { crate_name: crate_name.to_string() }.into(),
-            )
+            return Err(error::CrateErr {
+                crate_name: crate_name.to_string(),
+            }.into())
         }
     };
 
@@ -51,7 +51,6 @@ pub fn create_documentation(host: &AnalysisHost, crate_name: &str) -> Result<Doc
     // Now that we have that, it's time to get the children; these are
     // the top-level items for the crate.
     let ids = host.for_each_child_def(root_id, |id, _def| id).unwrap();
-
 
     // Now, we push all of those children onto a channel. The channel functions
     // as a work queue; we take an item off, process it, and then if it has
@@ -152,11 +151,9 @@ pub fn create_documentation(host: &AnalysisHost, crate_name: &str) -> Result<Doc
                 // ... but only if the parent isn't the root, as that's
                 // represented by a crate, rather than by a module.
                 if parent_def.qualname != root_def.qualname {
-                    let data = Data::new().ty(String::from("module")).id(
-                        parent_def
-                            .qualname
-                            .clone(),
-                    );
+                    let data = Data::new()
+                        .ty(String::from("module"))
+                        .id(parent_def.qualname.clone());
 
                     document.add_singular_relationship(String::from("parent"), data);
                 }

@@ -2,14 +2,14 @@
 
 //! Code used to drive the creation of documentation for Rust Crates.
 
-extern crate rustdoc;
 extern crate clap;
+extern crate rustdoc;
 
 use clap::{App, Arg, SubCommand};
 
 use rustdoc::{build, Config, Result, Verbosity};
 
-use std::io::{Write, stderr};
+use std::io::{stderr, Write};
 use std::process;
 use std::path::PathBuf;
 
@@ -30,12 +30,18 @@ fn run() -> Result<()> {
                 .default_value("./Cargo.toml")
                 .help("The path to the Cargo manifest of the project you are documenting."),
         )
-        .arg(Arg::with_name("quiet").short("q").long("quiet").help(
-            "No output printed to stdout",
-        ))
-        .arg(Arg::with_name("verbose").short("v").long("verbose").help(
-            "Use verbose output",
-        ))
+        .arg(
+            Arg::with_name("quiet")
+                .short("q")
+                .long("quiet")
+                .help("No output printed to stdout"),
+        )
+        .arg(
+            Arg::with_name("verbose")
+                .short("v")
+                .long("verbose")
+                .help("Use verbose output"),
+        )
         .subcommand(
             SubCommand::with_name("build")
                 .about("generates documentation")
@@ -47,16 +53,17 @@ fn run() -> Result<()> {
                         .possible_values(ALL_ARTIFACTS)
                         .help("Build artifacts to produce. Defaults to just the frontend."),
                 )
-                .arg(Arg::with_name("open").short("o").long("open").help(
-                    "Open the docs in a web browser after building.",
-                )),
+                .arg(
+                    Arg::with_name("open")
+                        .short("o")
+                        .long("open")
+                        .help("Open the docs in a web browser after building."),
+                ),
         )
-        .subcommand(SubCommand::with_name("open").about(
-            "opens the documentation in a web browser",
-        ))
-        .subcommand(SubCommand::with_name("test").about(
-            "runs documentation tests in the current crate",
-        ))
+        .subcommand(SubCommand::with_name("open").about("opens the documentation in a web browser"))
+        .subcommand(
+            SubCommand::with_name("test").about("runs documentation tests in the current crate"),
+        )
         .get_matches();
 
     // unwrap is okay because we take a default value
@@ -76,9 +83,7 @@ fn run() -> Result<()> {
             let artifacts: Vec<&str> = matches
                 .values_of("artifacts")
                 .map(|values| values.collect())
-                .unwrap_or_else(|| {
-                    DEFAULT_ARTIFACTS.iter().map(|&artifact| artifact).collect()
-                });
+                .unwrap_or_else(|| DEFAULT_ARTIFACTS.iter().map(|&artifact| artifact).collect());
             build(&config, &artifacts)?;
             if matches.is_present("open") {
                 config.open_docs()?;

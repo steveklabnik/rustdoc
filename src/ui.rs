@@ -22,9 +22,9 @@ impl Ui {
 
         if let Some(ref spinner) = spinner {
             spinner.enable_steady_tick(50);
-            spinner.set_style(ProgressStyle::default_spinner().template(
-                "{spinner} {prefix}: {wide_msg}",
-            ));
+            spinner.set_style(
+                ProgressStyle::default_spinner().template("{spinner} {prefix}: {wide_msg}"),
+            );
 
             spinner.set_prefix(name);
         }

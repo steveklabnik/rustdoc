@@ -65,12 +65,10 @@ pub fn retrieve_metadata(manifest_path: &Path) -> Result<serde_json::Value> {
         .output()?;
 
     if !output.status.success() {
-        return Err(
-            error::Cargo {
-                status: output.status,
-                stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
-            }.into(),
-        );
+        return Err(error::Cargo {
+            status: output.status,
+            stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+        }.into());
     }
 
     Ok(serde_json::from_slice(&output.stdout)?)
@@ -151,9 +149,9 @@ where
             // We don't want to display any of these messages to the user, so we whitelist certain
             // cargo messages. Alternatively, we could use the JSON message format to filter, but
             // that is probably overkill.
-            if line.starts_with("Updating") || line.starts_with("Compiling") ||
-                line.starts_with("Finished") || line.starts_with("Running") ||
-                line.starts_with("Fresh") || line.starts_with("Downloading")
+            if line.starts_with("Updating") || line.starts_with("Compiling")
+                || line.starts_with("Finished") || line.starts_with("Running")
+                || line.starts_with("Fresh") || line.starts_with("Downloading")
             {
                 report_progress(line);
             }
@@ -177,9 +175,9 @@ where
 pub fn target_from_metadata(ui: &Ui, metadata: &serde_json::Value) -> Result<Target> {
     // We can expect at least one package and target, otherwise the metadata generation would have
     // failed.
-    let targets = metadata["packages"][0]["targets"].as_array().expect(
-        "`targets` is not an array",
-    );
+    let targets = metadata["packages"][0]["targets"]
+        .as_array()
+        .expect("`targets` is not an array");
 
     let mut targets = targets
         .into_iter()
@@ -188,11 +186,9 @@ pub fn target_from_metadata(ui: &Ui, metadata: &serde_json::Value) -> Result<Tar
             let kinds = target["kind"].as_array().expect("`kind` is not an array");
 
             if kinds.len() != 1 {
-                return Some(Err(
-                    error::Json {
-                        location: format!("expected one kind for target '{}'", name),
-                    }.into(),
-                ));
+                return Some(Err(error::Json {
+                    location: format!("expected one kind for target '{}'", name),
+                }.into()));
             }
 
             let kind = match kinds[0].as_str().unwrap() {
@@ -211,9 +207,7 @@ pub fn target_from_metadata(ui: &Ui, metadata: &serde_json::Value) -> Result<Tar
         .collect::<Result<Vec<_>>>()?;
 
     if targets.is_empty() {
-        return Err(
-            failure::err_msg("no targets with supported kinds (`bin`, `lib`) found").into(),
-        );
+        return Err(failure::err_msg("no targets with supported kinds (`bin`, `lib`) found").into());
     } else if targets.len() == 1 {
         Ok(targets.remove(0))
     } else {
@@ -238,8 +232,7 @@ pub fn target_from_metadata(ui: &Ui, metadata: &serde_json::Value) -> Result<Tar
 
         ui.warn(&format!(
             "Found more than one target to document. Documenting the {}: {}",
-            kind,
-            target.name
+            kind, target.name
         ));
 
         Ok(target)
@@ -269,7 +262,13 @@ mod tests {
             ],
         });
         let target = super::target_from_metadata(&ui, &metadata).unwrap();
-        assert_eq!(target, Target { kind: TargetKind::Library, name: "underscored_name".into() });
+        assert_eq!(
+            target,
+            Target {
+                kind: TargetKind::Library,
+                name: "underscored_name".into(),
+            }
+        );
         assert_eq!(&target.crate_name(), "underscored_name");
 
         let metadata = json!({
@@ -286,7 +285,13 @@ mod tests {
             ],
         });
         let target = super::target_from_metadata(&ui, &metadata).unwrap();
-        assert_eq!(target, Target { kind: TargetKind::Library, name: "dashed-name".into() });
+        assert_eq!(
+            target,
+            Target {
+                kind: TargetKind::Library,
+                name: "dashed-name".into(),
+            }
+        );
         assert_eq!(&target.crate_name(), "dashed_name");
 
         let metadata = json!({
@@ -303,7 +308,13 @@ mod tests {
             ],
         });
         let target = super::target_from_metadata(&ui, &metadata).unwrap();
-        assert_eq!(target, Target { kind: TargetKind::Binary, name: "underscored_name".into() });
+        assert_eq!(
+            target,
+            Target {
+                kind: TargetKind::Binary,
+                name: "underscored_name".into(),
+            }
+        );
         assert_eq!(&target.crate_name(), "underscored_name");
 
         let metadata = json!({
@@ -319,7 +330,10 @@ mod tests {
                 },
             ],
         });
-        assert_eq!(super::target_from_metadata(&ui, &metadata).unwrap().kind, TargetKind::Library);
+        assert_eq!(
+            super::target_from_metadata(&ui, &metadata).unwrap().kind,
+            TargetKind::Library
+        );
 
         let metadata = json!({
             "packages": [
@@ -334,7 +348,10 @@ mod tests {
                 },
             ],
         });
-        assert_eq!(super::target_from_metadata(&ui, &metadata).unwrap().kind, TargetKind::Binary);
+        assert_eq!(
+            super::target_from_metadata(&ui, &metadata).unwrap().kind,
+            TargetKind::Binary
+        );
 
         let metadata = json!({
             "packages": [
@@ -353,6 +370,9 @@ mod tests {
                 },
             ],
         });
-        assert_eq!(super::target_from_metadata(&ui, &metadata).unwrap().kind, TargetKind::Library);
+        assert_eq!(
+            super::target_from_metadata(&ui, &metadata).unwrap().kind,
+            TargetKind::Library
+        );
     }
 }
