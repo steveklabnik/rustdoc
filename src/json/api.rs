@@ -293,9 +293,9 @@ mod tests {
         document.relationships(
             "modules".into(),
             vec![
-                Data::new().ty("module".into()).id(
-                    "example::module_one".into()
-                ),
+                Data::new()
+                    .ty("module".into())
+                    .id("example::module_one".into()),
             ],
         );
 
@@ -312,9 +312,9 @@ mod tests {
         document.relationships(
             "modules".into(),
             vec![
-                Data::new().ty("module".into()).id(
-                    "example::module_two".into()
-                ),
+                Data::new()
+                    .ty("module".into())
+                    .id("example::module_two".into()),
             ],
         );
 
@@ -336,7 +336,10 @@ mod tests {
             "type": "module",
             "id": "example::module",
         });
-        assert_eq!(module_data_json, serde_json::to_value(&module_data).unwrap());
+        assert_eq!(
+            module_data_json,
+            serde_json::to_value(&module_data).unwrap()
+        );
 
         let mut krate = Document::new()
             .ty("crate".into())

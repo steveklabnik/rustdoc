@@ -1,10 +1,10 @@
 //! Documentation tests.
 
 use std::io::prelude::*;
-use std::process::{Command, Stdio, Output};
+use std::process::{Command, Output, Stdio};
 
-use pulldown_cmark::{Parser, Event, Tag};
-use quote::{Tokens, ToTokens};
+use pulldown_cmark::{Event, Parser, Tag};
+use quote::{ToTokens, Tokens};
 use serde_json::{self, Value};
 use syn::{self, Block, Constness, FnDecl, FunctionRetTy, Generics, Ident, Item, ItemKind, Stmt,
           Unsafety, Visibility, WhereClause};
@@ -49,7 +49,8 @@ fn find_test_blocks(docs: &str) -> Vec<String> {
     while let Some(event) = parser.next() {
         match event {
             Event::Start(Tag::CodeBlock(ref language))
-                if language.is_empty() || language == "rust" => {
+                if language.is_empty() || language == "rust" =>
+            {
                 let mut test = String::new();
                 while let Some(event) = parser.next() {
                     match event {

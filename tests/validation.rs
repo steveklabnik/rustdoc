@@ -1,5 +1,5 @@
-extern crate rustdoc;
 extern crate jsonapi;
+extern crate rustdoc;
 
 mod validation_tests {
     use jsonapi::api::JsonApiDocument;

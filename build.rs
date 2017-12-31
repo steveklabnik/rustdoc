@@ -42,8 +42,7 @@ fn run() -> io::Result<()> {
 
         let source_file_path = source_file.to_str().unwrap();
 
-        let test =
-            quote! {
+        let test = quote! {
             #[test]
             fn #test_name() {
                 use std::env;

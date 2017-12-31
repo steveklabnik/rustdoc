@@ -5,15 +5,15 @@
 
 #[macro_use]
 extern crate failure;
-#[macro_use]
-extern crate serde_derive;
-#[cfg_attr(test, macro_use)]
-extern crate serde_json;
 #[cfg_attr(test, macro_use)]
 #[cfg(test)]
 extern crate indoc;
 #[cfg_attr(test, macro_use)]
 extern crate quote;
+#[macro_use]
+extern crate serde_derive;
+#[cfg_attr(test, macro_use)]
+extern crate serde_json;
 
 extern crate indicatif;
 extern crate open;
@@ -113,9 +113,9 @@ impl Config {
         if !index.is_file() {
             let metadata = cargo::retrieve_metadata(&self.manifest_path)?;
             let target = cargo::target_from_metadata(&self.ui, &metadata)?;
-            index = self.output_path().join(target.crate_name()).join(
-                "index.html",
-            );
+            index = self.output_path()
+                .join(target.crate_name())
+                .join("index.html");
         }
 
         open::that(index)?;
@@ -179,11 +179,13 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
             .stdin(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(|e| if e.kind() == io::ErrorKind::NotFound {
-                e.context(format!("frontend `{}` not found", frontend))
-                    .into()
-            } else {
-                failure::Error::from(e)
+            .map_err(|e| {
+                if e.kind() == io::ErrorKind::NotFound {
+                    e.context(format!("frontend `{}` not found", frontend))
+                        .into()
+                } else {
+                    failure::Error::from(e)
+                }
             })?;
 
         {
@@ -208,9 +210,8 @@ pub fn build(config: &Config, artifacts: &[&str]) -> Result<()> {
 
 /// Run all documentation tests.
 pub fn test(config: &Config) -> Result<()> {
-    let doc_json = File::open(config.documentation_path()).map_err(|e| {
-        failure::Error::from(e.context("could not find generated documentation"))
-    })?;
+    let doc_json = File::open(config.documentation_path())
+        .map_err(|e| failure::Error::from(e.context("could not find generated documentation")))?;
     let docs: Documentation = serde_json::from_reader(doc_json)?;
 
     let krate = docs.data.as_ref().unwrap();
@@ -305,8 +306,9 @@ fn generate_and_load_analysis(config: &Config, target: &Target) -> Result<()> {
     let task = config.ui.start_task("Generating save analysis data");
     task.report("In progress");
 
-    let analysis_result =
-        cargo::generate_analysis(config, target, |progress| { task.report(progress); });
+    let analysis_result = cargo::generate_analysis(config, target, |progress| {
+        task.report(progress);
+    });
 
     if analysis_result.is_err() {
         task.error();

@@ -21,10 +21,8 @@ pub fn plain_summary(markdown: &str) -> String {
     for event in parser {
         match event {
             Event::Text(text) => summary.push_str(&text),
-            Event::Start(Tag::Code) |
-            Event::End(Tag::Code) => summary.push('`'),
-            Event::End(Tag::Paragraph) |
-            Event::End(Tag::Header(_)) => break,
+            Event::Start(Tag::Code) | Event::End(Tag::Code) => summary.push('`'),
+            Event::End(Tag::Paragraph) | Event::End(Tag::Header(_)) => break,
             _ => (),
         }
     }
