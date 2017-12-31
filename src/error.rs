@@ -26,3 +26,21 @@ pub struct Json {
     /// The location of the unexpected JSON
     pub location: String,
 }
+
+/// Thrown when a flag, supported in the original rustdoc, is no longer supported
+#[derive(Debug, Fail)]
+#[fail(display = "Unsupported flag: {}", flag_name)]
+pub struct UnsupportedFlag {
+    /// The name of the unsupported flag
+    pub flag_name: String,
+}
+
+/// Thrown when a flag, supported in the original rustdoc, has been moved
+#[derive(Debug, Fail)]
+#[fail(display = "The flag '{}' has been changed. {}", flag_name, msg)]
+pub struct MovedFlag {
+    /// The name of the unsupported flag
+    pub flag_name: String,
+    /// A message explaning where the flag moved to
+    pub msg: String,
+}
