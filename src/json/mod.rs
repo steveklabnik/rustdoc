@@ -186,6 +186,7 @@ pub fn create_documentation(host: &AnalysisHost, crate_name: &str) -> Result<Doc
             document.add_relationship(child_ty.clone(), data);
         }
 
+        debug!("adding document for {}", def.qualname);
         included.push(document);
     }
 

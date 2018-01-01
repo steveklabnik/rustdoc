@@ -3,6 +3,8 @@
 //! Code used to drive the creation of documentation for Rust Crates.
 
 extern crate clap;
+extern crate env_logger;
+
 extern crate rustdoc;
 
 use clap::{App, Arg, ArgMatches, SubCommand};
@@ -17,6 +19,8 @@ static ALL_ARTIFACTS: &[&str] = &["frontend", "json"];
 static DEFAULT_ARTIFACTS: &[&str] = &["frontend"];
 
 fn run() -> Result<()> {
+    env_logger::init().expect("could not initialize logger");
+
     let version = env!("CARGO_PKG_VERSION");
 
     let matches = App::new("rustdoc")
