@@ -248,19 +248,8 @@ mod tests {
     fn target_from_metadata() {
         let ui = Ui::default();
 
-        let metadata = json!({
-            "packages": [
-                {
-                    "name": "underscored_name",
-                    "targets": [
-                        {
-                            "kind": [ "lib" ],
-                            "name": "underscored_name",
-                        },
-                    ],
-                },
-            ],
-        });
+        let metadata =
+            json!({});
         let target = super::target_from_metadata(&ui, &metadata).unwrap();
         assert_eq!(
             target,
@@ -271,19 +260,8 @@ mod tests {
         );
         assert_eq!(&target.crate_name(), "underscored_name");
 
-        let metadata = json!({
-            "packages": [
-                {
-                    "name": "dashed-name",
-                    "targets": [
-                        {
-                            "kind": [ "lib" ],
-                            "name": "dashed-name",
-                        },
-                    ],
-                },
-            ],
-        });
+        let metadata =
+            json!({});
         let target = super::target_from_metadata(&ui, &metadata).unwrap();
         assert_eq!(
             target,
@@ -294,19 +272,8 @@ mod tests {
         );
         assert_eq!(&target.crate_name(), "dashed_name");
 
-        let metadata = json!({
-            "packages": [
-                {
-                    "name": "underscored_name",
-                    "targets": [
-                        {
-                            "kind": [ "bin" ],
-                            "name": "underscored_name",
-                        },
-                    ],
-                },
-            ],
-        });
+        let metadata =
+            json!({});
         let target = super::target_from_metadata(&ui, &metadata).unwrap();
         assert_eq!(
             target,
@@ -317,59 +284,22 @@ mod tests {
         );
         assert_eq!(&target.crate_name(), "underscored_name");
 
-        let metadata = json!({
-            "packages": [
-                {
-                    "name": "library",
-                    "targets": [
-                        {
-                            "kind": [ "lib" ],
-                            "name": "library",
-                        },
-                    ],
-                },
-            ],
-        });
+        let metadata =
+            json!({});
         assert_eq!(
             super::target_from_metadata(&ui, &metadata).unwrap().kind,
             TargetKind::Library
         );
 
-        let metadata = json!({
-            "packages": [
-                {
-                    "name": "binary",
-                    "targets": [
-                        {
-                            "kind": [ "bin" ],
-                            "name": "binary",
-                        },
-                    ],
-                },
-            ],
-        });
+        let metadata =
+            json!({});
         assert_eq!(
             super::target_from_metadata(&ui, &metadata).unwrap().kind,
             TargetKind::Binary
         );
 
-        let metadata = json!({
-            "packages": [
-                {
-                    "name": "library",
-                    "targets": [
-                        {
-                            "kind": [ "lib" ],
-                            "name": "library",
-                        },
-                        {
-                            "kind": [ "test" ],
-                            "name": "other_kind",
-                        },
-                    ],
-                },
-            ],
-        });
+        let metadata =
+            json!({});
         assert_eq!(
             super::target_from_metadata(&ui, &metadata).unwrap().kind,
             TargetKind::Library
