@@ -248,8 +248,7 @@ mod tests {
     fn target_from_metadata() {
         let ui = Ui::default();
 
-        let metadata =
-            json!({});
+        let metadata = json!({});
         let target = super::target_from_metadata(&ui, &metadata).unwrap();
         assert_eq!(
             target,
@@ -260,8 +259,7 @@ mod tests {
         );
         assert_eq!(&target.crate_name(), "underscored_name");
 
-        let metadata =
-            json!({});
+        let metadata = json!({});
         let target = super::target_from_metadata(&ui, &metadata).unwrap();
         assert_eq!(
             target,
@@ -272,8 +270,7 @@ mod tests {
         );
         assert_eq!(&target.crate_name(), "dashed_name");
 
-        let metadata =
-            json!({});
+        let metadata = json!({});
         let target = super::target_from_metadata(&ui, &metadata).unwrap();
         assert_eq!(
             target,
@@ -284,22 +281,19 @@ mod tests {
         );
         assert_eq!(&target.crate_name(), "underscored_name");
 
-        let metadata =
-            json!({});
+        let metadata = json!({});
         assert_eq!(
             super::target_from_metadata(&ui, &metadata).unwrap().kind,
             TargetKind::Library
         );
 
-        let metadata =
-            json!({});
+        let metadata = json!({});
         assert_eq!(
             super::target_from_metadata(&ui, &metadata).unwrap().kind,
             TargetKind::Binary
         );
 
-        let metadata =
-            json!({});
+        let metadata = json!({});
         assert_eq!(
             super::target_from_metadata(&ui, &metadata).unwrap().kind,
             TargetKind::Library

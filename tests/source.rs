@@ -571,8 +571,7 @@ mod tests {
 
     #[test]
     fn run_test() {
-        let json =
-            json!({});
+        let json = json!({});
 
         let test = TestCase {
             jmespath: jmespath::compile("test").unwrap(),

@@ -332,8 +332,7 @@ mod tests {
     #[test]
     fn serialize() {
         let module_data = Data::new().ty("module".into()).id("example::module".into());
-        let module_data_json =
-            json!({});
+        let module_data_json = json!({});
         assert_eq!(
             module_data_json,
             serde_json::to_value(&module_data).unwrap()
@@ -349,8 +348,7 @@ mod tests {
             .id("example::module".into())
             .attributes("docs".into(), "module docs".into())
             .attributes("name".into(), "module".into());
-        let module_json =
-            json!({});
+        let module_json = json!({});
         assert_eq!(serde_json::to_value(&module).unwrap(), module_json);
 
         krate.relationships("modules".into(), vec![module_data]);
