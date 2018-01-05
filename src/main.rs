@@ -235,11 +235,10 @@ fn check_moved_flags(matches: &ArgMatches) -> Result<()> {
         ("target", build_msg),
         ("sysroot", build_msg),
         ("test", "Use in conjunction with the test subcommand."),
-        ("test", "Use the test subcommand."),
     ];
 
     for &(flag, err_msg) in moved_flags.iter() {
-        if matches.is_present(flag) {
+        if matches.args.contains_key(flag) {
             return Err(error::MovedFlag {
                 flag_name: flag.to_string(),
                 msg: err_msg.to_string(),
