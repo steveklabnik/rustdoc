@@ -571,7 +571,11 @@ mod tests {
 
     #[test]
     fn run_test() {
-        let json = json!({});
+        let json = json!({
+            "test": "value",
+            "nonString": ["non", "string"],
+            "boolean": true,
+        });
 
         let test = TestCase {
             jmespath: jmespath::compile("test").unwrap(),
