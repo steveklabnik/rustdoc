@@ -332,6 +332,8 @@ mod tests {
     #[test]
     fn serialize() {
         let module_data = Data::new().ty("module".into()).id("example::module".into());
+        // work around until https://github.com/rust-lang-nursery/rustfmt/issues/2344 is fixed
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let module_data_json = json!({
             "type": "module",
             "id": "example::module",
@@ -351,6 +353,8 @@ mod tests {
             .id("example::module".into())
             .attributes("docs".into(), "module docs".into())
             .attributes("name".into(), "module".into());
+        // work around until https://github.com/rust-lang-nursery/rustfmt/issues/2344 is fixed
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let module_json = json!({
             "type": "module",
             "id": "example::module",

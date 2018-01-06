@@ -248,6 +248,8 @@ mod tests {
     fn target_from_metadata() {
         let ui = Ui::default();
 
+        // work around until https://github.com/rust-lang-nursery/rustfmt/issues/2344 is fixed
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let metadata = json!({
             "packages": [
             {
@@ -271,6 +273,8 @@ mod tests {
         );
         assert_eq!(&target.crate_name(), "underscored_name");
 
+        // work around until https://github.com/rust-lang-nursery/rustfmt/issues/2344 is fixed
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let metadata = json!({
             "packages": [
             {
@@ -294,6 +298,8 @@ mod tests {
         );
         assert_eq!(&target.crate_name(), "dashed_name");
 
+        // work around until https://github.com/rust-lang-nursery/rustfmt/issues/2344 is fixed
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let metadata = json!({
             "packages": [
             {
@@ -317,6 +323,8 @@ mod tests {
         );
         assert_eq!(&target.crate_name(), "underscored_name");
 
+        // work around until https://github.com/rust-lang-nursery/rustfmt/issues/2344 is fixed
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let metadata = json!({
             "packages": [
             {
@@ -335,6 +343,8 @@ mod tests {
             TargetKind::Library
         );
 
+        // work around until https://github.com/rust-lang-nursery/rustfmt/issues/2344 is fixed
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let metadata = json!({
             "packages": [
             {
@@ -353,6 +363,8 @@ mod tests {
             TargetKind::Binary
         );
 
+        // work around until https://github.com/rust-lang-nursery/rustfmt/issues/2344 is fixed
+        #[cfg_attr(rustfmt, rustfmt_skip)]
         let metadata = json!({
             "packages": [
             {
