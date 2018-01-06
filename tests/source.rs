@@ -571,7 +571,13 @@ mod tests {
 
     #[test]
     fn run_test() {
-        let json = json!({});
+        // work around until https://github.com/rust-lang-nursery/rustfmt/issues/2344 is fixed
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        let json = json!({
+            "test": "value",
+            "nonString": ["non", "string"],
+            "boolean": true,
+        });
 
         let test = TestCase {
             jmespath: jmespath::compile("test").unwrap(),

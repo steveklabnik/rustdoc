@@ -332,10 +332,15 @@ mod tests {
     #[test]
     fn serialize() {
         let module_data = Data::new().ty("module".into()).id("example::module".into());
-        let module_data_json = json!({});
+        // work around until https://github.com/rust-lang-nursery/rustfmt/issues/2344 is fixed
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        let module_data_json = json!({
+            "type": "module",
+            "id": "example::module",
+        });
         assert_eq!(
-            module_data_json,
-            serde_json::to_value(&module_data).unwrap()
+            serde_json::to_value(&module_data).unwrap(),
+            module_data_json
         );
 
         let mut krate = Document::new()
@@ -348,7 +353,16 @@ mod tests {
             .id("example::module".into())
             .attributes("docs".into(), "module docs".into())
             .attributes("name".into(), "module".into());
-        let module_json = json!({});
+        // work around until https://github.com/rust-lang-nursery/rustfmt/issues/2344 is fixed
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        let module_json = json!({
+            "type": "module",
+            "id": "example::module",
+            "attributes": {
+                "docs": "module docs",
+                "name": "module",
+            },
+        });
         assert_eq!(serde_json::to_value(&module).unwrap(), module_json);
 
         krate.relationships("modules".into(), vec![module_data]);
