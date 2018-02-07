@@ -42,36 +42,38 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Fail)]
 enum TestParseError {
-    #[fail(display = "could not split directive arguments")] Quote,
+    #[fail(display = "could not split directive arguments")]
+    Quote,
 
-    #[fail(display = "regex syntax error")] RegexSyntax(#[cause] regex::Error),
+    #[fail(display = "regex syntax error")]
+    RegexSyntax(#[cause] regex::Error),
 
-    #[fail(display = "JMESPath syntax error")] JmespathSyntax(#[cause] JmespathError),
+    #[fail(display = "JMESPath syntax error")]
+    JmespathSyntax(#[cause] JmespathError),
 
     #[fail(display = "bad number of arguments: expected {}, got {}", expected, got)]
-    BadArguments {
-        expected: usize,
-        got: usize,
-    },
+    BadArguments { expected: usize, got: usize },
 
-    #[fail(display = "invalid JSON syntax")] JsonSyntax(#[cause] serde_json::Error),
+    #[fail(display = "invalid JSON syntax")]
+    JsonSyntax(#[cause] serde_json::Error),
 
-    #[fail(display = "invalid directive: {}", _0)] UnknownDirective(String),
+    #[fail(display = "invalid directive: {}", _0)]
+    UnknownDirective(String),
 }
 
 #[derive(Debug, Fail)]
 enum TestFailure {
-    #[fail(display = "assertion failed: {}", _0)] Assertion(String),
+    #[fail(display = "assertion failed: {}", _0)]
+    Assertion(String),
 
-    #[fail(display = "query matched no data")] NullMatch,
+    #[fail(display = "query matched no data")]
+    NullMatch,
 
     #[fail(display = "query returned unexpected type: expected {}, got {}", expected, value)]
-    TypeError {
-        expected: String,
-        value: Value,
-    },
+    TypeError { expected: String, value: Value },
 
-    #[fail(display = "could not evaluate query")] QueryEvaluation(#[cause] JmespathError),
+    #[fail(display = "could not evaluate query")]
+    QueryEvaluation(#[cause] JmespathError),
 }
 
 #[derive(Debug)]
