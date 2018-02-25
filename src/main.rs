@@ -315,7 +315,10 @@ fn main() {
 
         // The backtrace is not always generated. Try to run this example
         // with `RUST_BACKTRACE=1`.
-        eprintln!("Backtrace, if any: {:?}", e.backtrace());
+        let backtrace = e.backtrace().to_string();
+        if !backtrace.is_empty() {
+            eprintln!("Backtrace: {:?}", backtrace);
+        }
 
         process::exit(1);
     }
