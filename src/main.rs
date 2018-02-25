@@ -11,7 +11,6 @@ use clap::{App, Arg, ArgMatches, SubCommand};
 
 use rustdoc::{build, error, Config, Result, Verbosity};
 
-use std::io::{stderr, Write};
 use std::process;
 use std::path::PathBuf;
 
@@ -310,16 +309,13 @@ fn check_unimplemented_flags(matches: &ArgMatches) {
 
 fn main() {
     if let Err(e) = run() {
-        let stderr = &mut stderr();
-        let errmsg = "Error writing to stderr";
+        eprintln!("Error: {}", e);
 
-        writeln!(stderr, "Error: {}", e).expect(errmsg);
-
-        writeln!(stderr, "Caused by: {}", e.cause()).expect(errmsg);
+        eprintln!("Caused by: {}", e.cause());
 
         // The backtrace is not always generated. Try to run this example
         // with `RUST_BACKTRACE=1`.
-        writeln!(stderr, "Backtrace, if any: {:?}", e.backtrace()).expect(errmsg);
+        eprintln!("Backtrace, if any: {:?}", e.backtrace());
 
         process::exit(1);
     }
