@@ -129,7 +129,7 @@ For more details, see the [`CONTRIBUTING.md`][contributing] file.
 [appveyor_img]: https://ci.appveyor.com/api/projects/status/github/steveklabnik/rustdoc?svg=true
 [rust]: https://github.com/rust-lang/rust
 [rustdoc_redux]: https://internals.rust-lang.org/t/the-rustdoc-redux/5542
-[json_api]: https://jsonapi.org
+[json_api]: http://jsonapi.org
 [ember]: https://emberjs.com/
 [issue_tracker]: https://github.com/steveklabnik/rustdoc/issues
 [contributing]: https://github.com/steveklabnik/rustdoc/blob/master/CONTRIBUTING.md
