@@ -6,6 +6,7 @@ mod validation_tests {
     use std::fs::File;
     use std::io::Read;
     use std::path::{Path, PathBuf};
+    use std::str::FromStr;
     use rustdoc::{build, Config, Verbosity};
 
     #[test]
