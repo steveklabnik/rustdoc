@@ -41,6 +41,6 @@ pub struct UnsupportedFlag {
 pub struct MovedFlag {
     /// The name of the unsupported flag
     pub flag_name: String,
-    /// A message explaning where the flag moved to
+    /// A message explaining where the flag moved to
     pub msg: String,
 }
