@@ -3,10 +3,10 @@ extern crate rustdoc;
 
 mod validation_tests {
     use jsonapi::api::JsonApiDocument;
+    use rustdoc::{build, Config, Verbosity};
     use std::fs::File;
     use std::io::Read;
     use std::path::{Path, PathBuf};
-    use rustdoc::{build, Config, Verbosity};
 
     #[test]
     fn json_fmt_test() {

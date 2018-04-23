@@ -34,8 +34,8 @@ mod ui;
 
 use std::env;
 use std::fs::{self, File};
-use std::io::prelude::*;
 use std::io;
+use std::io::prelude::*;
 use std::iter;
 use std::path::{Path, PathBuf};
 use std::process::{self, Command, Stdio};

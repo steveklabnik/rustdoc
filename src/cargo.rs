@@ -1,19 +1,19 @@
 //! Functions for retrieving package data from `cargo`.
 
-use std::io::BufReader;
 use std::io::prelude::*;
+use std::io::BufReader;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
 use analysis_data::config::Config as AnalysisConfig;
 use serde_json;
 
-use Config;
-use Verbosity;
 use error;
 use failure;
 use ui::Ui;
+use Config;
 use Result;
+use Verbosity;
 
 /// The kinds of targets that we can document.
 #[derive(Debug, PartialEq, Eq)]
@@ -241,8 +241,8 @@ pub fn target_from_metadata(ui: &Ui, metadata: &serde_json::Value) -> Result<Tar
 
 #[cfg(test)]
 mod tests {
-    use ui::Ui;
     use super::{Target, TargetKind};
+    use ui::Ui;
 
     #[test]
     fn target_from_metadata() {

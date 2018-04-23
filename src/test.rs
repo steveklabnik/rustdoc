@@ -10,9 +10,9 @@ use syn::{self, Block, Constness, FnDecl, FunctionRetTy, Generics, Ident, Item, 
           Unsafety, Visibility, WhereClause};
 use tempdir::TempDir;
 
+use json::Document;
 use Config;
 use Result;
-use json::Document;
 
 /// The outcome of a documentation test.
 pub enum TestResult {

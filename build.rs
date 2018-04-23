@@ -6,10 +6,10 @@
 extern crate quote;
 
 use std::env;
-use std::fs::File;
 use std::fs;
-use std::io::prelude::*;
+use std::fs::File;
 use std::io;
+use std::io::prelude::*;
 use std::path::Path;
 use std::process;
 

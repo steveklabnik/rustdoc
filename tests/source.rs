@@ -382,12 +382,13 @@ fn join_line_continuations(contents: &str) -> Vec<(usize, String)> {
 /// case contained in the line, returns `None`.
 fn parse_test(line: &str) -> Option<::std::result::Result<TestCase, TestParseError>> {
     lazy_static! {
-        static ref DIRECTIVE_RE: Regex =
-            Regex::new(r"(?x)
+        static ref DIRECTIVE_RE: Regex = Regex::new(
+            r"(?x)
                 ^[[:^alnum:]]*@(?P<negated>!)?(?P<directive>[a-z]+)
                 \s+
                 (?P<args>.*)$
-            ").unwrap();
+            "
+        ).unwrap();
     }
 
     if let Some(caps) = DIRECTIVE_RE.captures(line) {
@@ -465,7 +466,7 @@ mod tests {
                 $kind => (),
                 error => panic!("unexpected error kind: {:?}", error),
             }
-        }
+        };
     }
 
     #[test]

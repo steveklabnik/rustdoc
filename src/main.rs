@@ -12,8 +12,8 @@ use clap::{App, Arg, ArgMatches, SubCommand};
 use rustdoc::{build, error, Config, Result, Verbosity};
 
 use std::io::{stderr, Write};
-use std::process;
 use std::path::PathBuf;
+use std::process;
 
 static ALL_ARTIFACTS: &[&str] = &["frontend", "json"];
 static DEFAULT_ARTIFACTS: &[&str] = &["frontend"];

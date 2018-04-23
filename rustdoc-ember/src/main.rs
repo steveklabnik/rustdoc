@@ -8,8 +8,8 @@ extern crate clap;
 extern crate env_logger;
 
 use std::fs::{self, File};
-use std::io::prelude::*;
 use std::io;
+use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 
 use clap::{App, Arg};
