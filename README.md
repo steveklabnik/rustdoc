@@ -1,5 +1,4 @@
 # THIS REPOSITORY DOES NOTHING
 
-It's here for historical purposes only.
+This was originally going to be a re-write of rustdoc. It didn't happen. I've left the repository here for historical purposes only.
 
-Please see [doxidize](https://github.com/steveklabnik/doxidize), the successor to this project.
